@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= shopName %></title>
+    <link rel="stylesheet" href="/css/index.css">
+    <style>
+        .note-label {
+            font-size: 13px;
+            color: #555;
+            margin-bottom: 8px;
+            font-weight: 600;
+            text-align: left;
+        }
+
+        .input-group-wrapper {
+            position: relative;
+            width: 100%;
+            margin-bottom: 15px;
+        }
+
+        .input-group-wrapper .input-field {
+            width: 100%;
+            padding: 14px 45px 14px 16px;
+            border: 1.5px solid #dcdcdc;
+            border-radius: 10px;
+            font-size: 16px;
+            background-color: #fff;
+            outline: none;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+            box-sizing: border-box;
+        }
+
+        .input-group-wrapper .input-field:focus {
+            border-color: #1e5622;
+            box-shadow: 0 0 0 4px rgba(30, 86, 34, 0.1);
+        }
+
+        /* ปรับแต่ง Dropdown ที่สร้างขึ้นมาเองให้สวยงามและพรีเมียม */
+        .custom-dropdown-list {
+            position: absolute;
+            left: 0;
+            width: 100%;
+            background-color: #fff;
+            border: 1.5px solid #dcdcdc;
+            border-radius: 10px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+            z-index: 1000;
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
+            padding: 6px;
+            box-sizing: border-box;
+        }
+
+        .custom-dropdown-item {
+            padding: 10px 14px;
+            font-size: 15px;
+            color: #333;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: background-color 0.2s, color 0.2s;
+            text-align: left;
+        }
+
+        .custom-dropdown-item:hover {
+            background-color: #f0f7f1;
+            color: #1e5622;
+            font-weight: 500;
+        }
+
+        .dropdown-icon {
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            pointer-events: none;
+            color: #888;
+            font-size: 12px;
+            transition: transform 0.3s ease;
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 14px;
+            background-color: #1e5622;
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+            box-shadow: 0 4px 12px rgba(30, 86, 34, 0.2);
+        }
+
+        .btn-submit:hover {
+            background-color: #153e18;
+        }
+
+        .btn-submit:active {
+            transform: scale(0.98);
+        }
+
+        .reset-btn {
+            background: none;
+            border: none;
+            color: #d9534f;
+            cursor: pointer;
+            font-size: 13px;
+            text-decoration: underline;
+            transition: color 0.2s;
+        }
+
+        .reset-btn:hover {
+            color: #b52b27;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="top-bar">
+            <%= shopName %>
+        </div>
+
+        <div class="banner">☥</div>
+
+        <div class="welcome-label">ยินดีต้อนรับสู่</div>
+        <div class="shop-title">
+            <%= shopName %>
+        </div>
+
+        <div class="section-label">มันทำงานอย่างไร?</div>
+        <ol class="steps">
+            <% instructions.forEach(function(item) { %>
+                <li><span><%= item %></span></li>
+            <% }); %>
+        </ol>
+
+        <!-- ฟอร์มหลัก -->
+        <form action="/join-session" method="POST" id="joinForm">
+            <input type="hidden" name="session_id" value="<%= sessionId %>">
+            <input type="hidden" name="user_id" id="userIdInput">
+
+            <% if (existingUsers && existingUsers.length > 0) { %>
+                <div class="note-label">✨ หรือเลือกชื่อเดิม / พิมพ์ชื่อใหม่ได้เลย</div>
+            <% } %>
+
+            <div class="input-group-wrapper">
+                <input type="text" id="nameInput" name="name" class="input-field" placeholder="ใส่ชื่อเล่นของคุณ" required autocomplete="off" oninput="handleInput()" onfocus="handleInput()">
+                
+                <!-- Custom Dropdowns แทน datalist แบบเดิม -->
+                <% if (existingUsers && existingUsers.length > 0) { %>
+                    <div id="customDropdown" class="custom-dropdown-list">
+                        <% existingUsers.forEach(u => { %>
+                            <div class="custom-dropdown-item" onclick="selectUser('<%= u.name %>', '<%= u.user_id %>')">
+                                <%= u.name %>
+                            </div>
+                        <% }) %>
+                    </div>
+                <% } %>
+            </div>
+
+            <button type="submit" class="btn-submit" id="submitBtn">เริ่มสั่งอาหาร</button>
+        </form>
+
+        <div style="margin-top: 30px; text-align: center;">
+            <button onclick="resetSystem()" class="reset-btn">ล้างข้อมูลระบบ (Reset)</button>
+        </div>
+    </div>
+
+    <script>
+        // เก็บข้อมูล users จากฝั่ง Server ไว้ในตัวแปร JavaScript
+        const existingUsers = <%- JSON.stringify(existingUsers || []) %>;
+
+        function handleInput() {
+            const inputVal = document.getElementById('nameInput').value.trim().toLowerCase();
+            const dropdown = document.getElementById('customDropdown');
+            const userIdInput = document.getElementById('userIdInput');
+            const form = document.getElementById('joinForm');
+
+            if (!dropdown) return;
+
+            // กรองรายชื่อที่ตรงกับข้อความที่พิมพ์
+            const filteredUsers = existingUsers.filter(u => u.name.toLowerCase().includes(inputVal));
+
+            if (filteredUsers.length > 0 && inputVal.length >= 0) {
+                let htmlContent = '';
+                filteredUsers.forEach(u => {
+                    htmlContent += `<div class="custom-dropdown-item" onclick="selectUser('${u.name}', '${u.user_id}')">${u.name}</div>`;
+                });
+                dropdown.innerHTML = htmlContent;
+                dropdown.style.display = 'block';
+            } else {
+                dropdown.style.display = 'none';
+            }
+
+            // ตรวจสอบว่าเป็นชื่อเดิมเป๊ะๆ หรือไม่ เพื่อเปลี่ยน Action ของฟอร์ม
+            const exactMatch = existingUsers.find(u => u.name.trim().toLowerCase() === inputVal);
+            if (exactMatch) {
+                userIdInput.value = exactMatch.user_id;
+                form.action = `/menu?session_id=<%= sessionId %>&user_id=${exactMatch.user_id}`;
+                form.method = 'GET';
+            } else {
+                userIdInput.value = '';
+                form.action = '/join-session';
+                form.method = 'POST';
+            }
+        }
+
+        function selectUser(name, userId) {
+            document.getElementById('nameInput').value = name;
+            document.getElementById('userIdInput').value = userId;
+            
+            const form = document.getElementById('joinForm');
+            form.action = `/menu?session_id=<%= sessionId %>&user_id=${userId}`;
+            form.method = 'GET';
+
+            document.getElementById('customDropdown').style.display = 'none';
+        }
+
+        // ซ่อน Dropdown เมื่อคลิกพื้นที่นอกฟอร์ม
+        document.addEventListener('click', function(e) {
+            const wrapper = document.querySelector('.input-group-wrapper');
+            const dropdown = document.getElementById('customDropdown');
+            if (wrapper && dropdown && !wrapper.contains(e.target)) {
+                dropdown.style.display = 'none';
+            }
+        });
+
+        async function resetSystem() {
+            if (!confirm('คุณต้องการรีเซ็ตระบบและสร้าง Session ใหม่ใช่หรือไม่?')) return;
+
+            try {
+                const response = await fetch('/resetdatabase', { method: 'DELETE' });
+                const result = await response.json();
+
+                if (response.ok) {
+                    alert('รีเซ็ตระบบเรียบร้อยแล้ว!');
+                    window.location.href = `/?session_id=${result.new_session_id}`;
+                } else {
+                    alert('เกิดข้อผิดพลาด: ' + result.error);
+                }
+            } catch (err) {
+                alert('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
+            }
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>รายการอาหาร - บจก.ป๊อบอายสเต๊ก</title>
+    <link rel="stylesheet" href="/css/menu.css">
+</head>
+
+<body>
+    <div class="container">
+        <!-- Header Bar -->
+        <div class="user-bar">
+            <div>คุณ: <span class="user-name">
+                    <%= user.name %>
+                </span></div>
+            <div class="table-info-group">
+                <div class="table-info">โต๊ะ <%= sessionId %>
+                </div>
+                <button type="button" class="btn-add-user-header" onclick="openAddUserModal()">+ เพิ่มคน</button>
+            </div>
+        </div>
+
+        <h3 style="margin-top: 0; margin-bottom: 12px;">รายการอาหาร</h3>
+
+        <!-- หมวดหมู่อาหาร -->
+        <div class="categories-scroll">
+            <span class="category-chip active">ทั้งหมด</span>
+            <% categories.forEach(function(cat) { %>
+                <span class="category-chip">
+                    <%= cat.name %>
+                </span>
+                <% }); %>
+        </div>
+
+        <!-- รายการอาหารแบบ Grid 2 คอลัมน์ -->
+        <div class="menu-grid">
+            <% if (menuItems.length===0) { %>
+                <p style="grid-column: span 2; text-align: center; color: #888; margin-top: 20px;">
+                    ไม่มีรายการอาหารในระบบ</p>
+                <% } else { %>
+                    <% menuItems.forEach(function(item) { %>
+                        <div class="menu-card">
+                            <div class="menu-img-wrapper">
+                                <% if (item.image_url) { %>
+                                    <img src="<%= item.image_url %>" class="menu-img" alt="<%= item.name %>">
+                                    <% } else { %>
+                                        <div class="menu-img-placeholder">🍽️</div>
+                                        <% } %>
+                            </div>
+
+                            <div class="menu-info">
+                                <div class="menu-title">
+                                    <%= item.name %>
+                                </div>
+                                <div class="menu-action">
+                                    <div class="menu-price">฿<%= item.price %>
+                                    </div>
+                                    <button type="button" class="btn-open-config"
+                                        onclick="openConfigModal('<%= item.menu_item_id %>', '<%= item.name %>', '<%= item.price %>', '<%= item.image_url || '' %>')">
+                                        +
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <% }); %>
+                            <% } %>
+        </div>
+
+        <!-- แถบปุ่มดูตะกร้าด้านล่าง -->
+        <div class="cart-bar">
+            <a href="/cart?session_id=<%= sessionId %>&user_id=<%= userId %>" class="cart-btn">
+                ดูรายการที่สั่งแล้ว
+            </a>
+        </div>
+    </div>
+
+    <!-- Modal Popup Config เพิ่มลงตะกร้า -->
+    <div id="configModal" class="modal-overlay" onclick="closeModalOnOverlay(event)">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div>
+                    <div id="modalTitle" class="modal-title">ชื่อเมนู</div>
+                    <div id="modalPrice" class="modal-price">฿0</div>
+                </div>
+                <button type="button" class="btn-close" onclick="closeModal()">&times;</button>
+            </div>
+
+            <img id="modalImg" src="" class="modal-img" alt="เมนูอาหาร">
+
+            <!-- ฟอร์มส่งข้อมูลไปยัง Backend -->
+            <form action="/order/add" method="POST" id="orderForm">
+                <input type="hidden" name="session_id" value="<%= sessionId %>">
+                <input type="hidden" name="user_id" value="<%= userId %>">
+                <input type="hidden" name="menu_item_id" id="modalMenuItemId">
+                <input type="hidden" name="qty" id="modalQtyInput" value="1">
+
+                <!-- ปรับจำนวน -->
+                <div class="config-group">
+                    <span class="config-label" style="text-align: center; margin-bottom: 8px;">จำนวน</span>
+                    <div class="qty-control">
+                        <button type="button" class="qty-btn" onclick="changeQty(-1)">-</button>
+                        <span id="modalQtyDisplay" class="qty-display">1</span>
+                        <button type="button" class="qty-btn" onclick="changeQty(1)">+</button>
+                    </div>
+                </div>
+
+                <!-- เลือกคนหาร (ดึงมาจาก sessionUsers) -->
+                <div class="config-group">
+                    <div class="config-label-header">
+                        <label class="config-label">คนหารรายการนี้ (เลือกได้หลายคน)</label>
+                        <button type="button" class="btn-text-add" onclick="openAddUserModal()">+ เพิ่มคนในโต๊ะ</button>
+                    </div>
+                    <div class="user-share-list">
+                        <% if (typeof sessionUsers !=='undefined' && sessionUsers.length> 0) { %>
+                            <% sessionUsers.forEach(function(u) { %>
+                                <label class="share-chip">
+                                    <input type="checkbox" name="shared_user_ids[]" value="<%= u.user_id %>"
+                                        class="user-share-checkbox" <% if (u.user_id==userId) { %>checked<% } %>>
+                                        <span class="share-chip-btn">
+                                            ✓ <%= u.name %>
+                                                <% if (u.user_id==userId) { %>(ฉัน)<% } %>
+                                        </span>
+                                </label>
+                                <% }); %>
+                                    <% } else { %>
+                                        <label class="share-chip">
+                                            <input type="checkbox" name="shared_user_ids[]" value="<%= userId %>"
+                                                class="user-share-checkbox" checked>
+                                            <span class="share-chip-btn">
+                                                ✓ <%= user.name %> (ฉัน)
+                                            </span>
+                                        </label>
+                                        <% } %>
+                    </div>
+                </div>
+
+                <!-- หมายเหตุ -->
+                <div class="config-group">
+                    <label for="modalNote" class="config-label" style="margin-bottom: 8px;">รายละเอียดเพิ่มเติม /
+                        หมายเหตุ</label>
+                    <input type="text" id="modalNote" name="note" class="note-input"
+                        placeholder="เช่น เผ็ดน้อย, ไม่ใส่ผักชี">
+                </div>
+
+                <!-- ปุ่มยืนยัน -->
+                <button type="submit" class="btn-confirm" id="btnSubmit">
+                    ยืนยันเพิ่มลงตะกร้า - ฿<span id="modalTotalPrice">0</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Popup เพิ่มสมาชิกใหม่ในโต๊ะ -->
+    <div id="addUserModal" class="modal-overlay" onclick="closeAddUserModalOnOverlay(event)" style="z-index: 1001;">
+        <div class="modal-card" style="border-radius: 16px; margin: auto; max-width: 360px;">
+            <div class="modal-header">
+                <div class="modal-title">เพิ่มคนในโต๊ะ</div>
+                <button type="button" class="btn-close" onclick="closeAddUserModal()">&times;</button>
+            </div>
+            <div style="margin-top: 10px;">
+                <label class="config-label" style="margin-bottom: 8px;">ชื่อเล่นสมาชิกใหม่</label>
+                <input type="text" id="newUserNameInput" class="note-input" placeholder="เช่น เพื่อน A, แม่"
+                    onkeydown="if(event.key==='Enter'){ event.preventDefault(); submitAddUser(); }">
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button type="button" onclick="closeAddUserModal()"
+                    style="flex: 1; padding: 12px; border: 1px solid #ccc; background: #fff; border-radius: 8px; font-weight: bold; cursor: pointer;">ยกเลิก</button>
+                <button type="button" class="btn-confirm" onclick="submitAddUser()"
+                    style="flex: 1; padding: 12px;">บันทึก</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentPrice = 0;
+        let currentQty = 1;
+        const currentUserId = "<%= userId %>";
+
+        function openConfigModal(id, name, price, imgUrl) {
+            currentPrice = parseFloat(price);
+            currentQty = 1;
+
+            document.getElementById('modalMenuItemId').value = id;
+            document.getElementById('modalTitle').innerText = name;
+            document.getElementById('modalPrice').innerText = '฿' + currentPrice.toLocaleString();
+            document.getElementById('modalNote').value = '';
+
+            // รีเซ็ตติ๊กเลือกคนหาร ให้เลือกตัวเองไว้เสมอเมื่อเปิด Modal
+            const checkboxes = document.querySelectorAll('.user-share-checkbox');
+            checkboxes.forEach(cb => {
+                cb.checked = (cb.value === currentUserId);
+            });
+
+            // จัดการแสดงผลรูปภาพใน Modal
+            const imgEl = document.getElementById('modalImg');
+            if (imgUrl && imgUrl !== '') {
+                imgEl.src = imgUrl;
+                imgEl.style.display = 'block';
+            } else {
+                imgEl.style.display = 'none';
+            }
+
+            updateQtyDisplay();
+
+            document.getElementById('configModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('configModal').classList.remove('active');
+        }
+
+        function closeModalOnOverlay(event) {
+            if (event.target.id === 'configModal') {
+                closeModal();
+            }
+        }
+
+        function changeQty(amount) {
+            currentQty += amount;
+            if (currentQty < 1) currentQty = 1;
+            updateQtyDisplay();
+        }
+
+        function updateQtyDisplay() {
+            document.getElementById('modalQtyDisplay').innerText = currentQty;
+            document.getElementById('modalQtyInput').value = currentQty;
+
+            const total = currentPrice * currentQty;
+            document.getElementById('modalTotalPrice').innerText = total.toLocaleString();
+        }
+
+        /* --- ฟังก์ชันสำหรับการเพิ่มสมาชิกใหม่ (User) --- */
+        function openAddUserModal() {
+            document.getElementById('newUserNameInput').value = '';
+            document.getElementById('addUserModal').classList.add('active');
+            setTimeout(() => document.getElementById('newUserNameInput').focus(), 100);
+        }
+
+        function closeAddUserModal() {
+            document.getElementById('addUserModal').classList.remove('active');
+        }
+
+        function closeAddUserModalOnOverlay(event) {
+            if (event.target.id === 'addUserModal') {
+                closeAddUserModal();
+            }
+        }
+
+        async function submitAddUser() {
+            const nameInput = document.getElementById('newUserNameInput');
+            const name = nameInput.value.trim();
+
+            if (!name) {
+                alert('กรุณากรอกชื่อสมาชิกใหม่');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/add-user', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        session_id: '<%= sessionId %>',
+                        name: name
+                    })
+                });
+
+                if (response.ok) {
+                    const newUser = await response.json();
+
+                    // สร้าง Element ใหม่ของสมาชิกที่เพิ่งเพิ่ม
+                    const shareList = document.querySelector('.user-share-list');
+                    const newChip = document.createElement('label');
+                    newChip.className = 'share-chip';
+                    newChip.innerHTML = `
+                <input type="checkbox" name="shared_user_ids[]" value="${newUser.user_id}" class="user-share-checkbox">
+                <span class="share-chip-btn">✓ ${newUser.name}</span>
+            `;
+
+                    // เพิ่มเข้าไปในลิสต์คนหารทันที
+                    shareList.appendChild(newChip);
+
+                    // ปิด Modal เพิ่มคน และล้างค่าช่องกรอก
+                    nameInput.value = '';
+                    closeAddUserModal();
+                } else {
+                    alert('ไม่สามารถเพิ่มสมาชิกได้');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+            }
+        }
+    </script>
+</body>
+
+</html>
