@@ -780,7 +780,7 @@ app.post('/cashier/table/:table_id/finish-payment', (req, res) => {
 // -----------------------------------------------------------------------------
 // 8. ส่วนงานครัว (Kitchen)
 // -----------------------------------------------------------------------------
-const ST = { PENDING: 'pending', ORDERED: 'ordered', COOKING: 'cooking', READY: 'ready', SERVED: 'served' };
+const ST = { PENDING: 'pending', ORDERED: 'ordered', COOKING: 'cooking', READY: 'ready', SERVED: 'served', CANCELLED: 'cancelled' };
 // ครัวเปลี่ยนสถานะรายจานได้แค่ 2 แบบ: key = สถานะปลายทาง, value = สถานะที่ต้องเป็นอยู่ก่อน
 const KITCHEN_STEP = { ready: 'cooking', cooking: 'ready' };
 // พนักงานเสิร์ฟกดได้แบบเดียว: พร้อมเสิร์ฟ -> เสิร์ฟแล้ว (ใช้ที่หน้ารายละเอียดคำสั่งซื้อ)
@@ -805,6 +805,17 @@ function migrateKitchen() {
                 }
             });
         }
+        // ที่เก็บเหตุผลยกเลิก (แยกคอลัมน์ ไม่เขียนทับ note ของลูกค้า)
+        const hasReason = (cols || []).some((c) => c.name === 'cancel_reason');
+        if (!hasReason) {
+            db.run('ALTER TABLE ORDER_ITEMS ADD COLUMN cancel_reason TEXT', (err) => {
+                if (err) {
+                    console.error('Kitchen migration เพิ่มคอลัมน์ cancel_reason ไม่สำเร็จ:', err.message);
+                } else {
+                    console.log('Kitchen migration เพิ่มคอลัมน์ cancel_reason แล้ว');
+                }
+            });
+        }
     });
 
     db.get("SELECT employee_id FROM EMPLOYEES WHERE role = 'kitchen' LIMIT 1", [], (err, row) => {
@@ -826,53 +837,27 @@ function migrateKitchen() {
 
 migrateKitchen();
 
-// แปลงแถวผลลัพธ์เป็นบิล (1 โต๊ะมีได้หลายบิล แยกตามรอบที่ลูกค้ากดส่ง) เรียงบิลเก่าสุดก่อน
-function buildBills(rows, now) {
-    const billGroups = {};
-    (rows || []).forEach((r) => {
-        const sentMs = r.sent_at ? new Date(String(r.sent_at).replace(' ', 'T') + 'Z').getTime() : NaN;
-        const lineTotal = (Number(r.price) || 0) * (Number(r.qty) || 0);
-        const item = {
-            order_item_id: r.order_item_id,
-            qty: r.qty,
-            note: r.note,
-            status: r.status,
-            name: r.name,
-            price: Number(r.price) || 0,
-            lineTotal: lineTotal,
-            sentMs: sentMs,
-            timeTh: isNaN(sentMs) ? '-' : new Date(sentMs).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' }),
-            isNew: !isNaN(sentMs) && (now - sentMs) >= 0 && (now - sentMs) <= 60000,
-            waitMin: isNaN(sentMs) ? 0 : Math.max(0, Math.floor((now - sentMs) / 60000))
-        };
-        const key = [r.table_id, r.order_id, String(r.sent_at), r.status].join('|');
-        if (!billGroups[key]) {
-            billGroups[key] = { table_id: r.table_id, table_number: r.table_number, order_id: r.order_id, status: r.status, items: [] };
-        }
-        billGroups[key].items.push(item);
-    });
-
-    const bills = Object.values(billGroups).map((g) => {
-        const first = g.items.reduce((a, b) => (isNaN(a.sentMs) ? b : (isNaN(b.sentMs) ? a : (a.sentMs <= b.sentMs ? a : b))));
-        return {
-            table_id: g.table_id,
-            table_number: g.table_number,
-            order_id: g.order_id,
-            action: g.status === ST.ORDERED ? 'accept' : (g.status === ST.COOKING ? 'update' : 'serve'),
-            items: g.items,
-            ids: g.items.map((i) => i.order_item_id).join(','),
-            firstTimeTh: isNaN(first.sentMs) ? '-' : first.timeTh,
-            hasNew: g.items.some((i) => i.isNew),
-            maxWait: g.items.reduce((a, i) => Math.max(a, i.waitMin), 0),
-            total: g.items.reduce((a, i) => a + i.lineTotal, 0),
-            firstSentMs: isNaN(first.sentMs) ? Number.MAX_SAFE_INTEGER : first.sentMs
-        };
-    });
-    bills.sort((a, b) => a.firstSentMs - b.firstSentMs);
-    return bills;
+// แต่งแถว ORDER_ITEMS ให้พร้อมแสดงผล (เวลาไทย ป้ายใหม่ นาทีที่รอ ยอดเงิน เหตุผลยกเลิก)
+function makeItem(r, now) {
+    const sentMs = r.sent_at ? new Date(String(r.sent_at).replace(' ', 'T') + 'Z').getTime() : NaN;
+    const price = Number(r.price) || 0;
+    const qty = Number(r.qty) || 0;
+    return {
+        order_item_id: r.order_item_id,
+        qty: r.qty,
+        note: r.note,
+        status: r.status,
+        name: r.name,
+        price: price,
+        lineTotal: price * qty,
+        cancel_reason: r.cancel_reason || '',
+        timeTh: isNaN(sentMs) ? '-' : new Date(sentMs).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' }),
+        isNew: !isNaN(sentMs) && (now - sentMs) >= 0 && (now - sentMs) <= 60000,
+        waitMin: isNaN(sentMs) ? 0 : Math.max(0, Math.floor((now - sentMs) / 60000))
+    };
 }
 
-// 8.1 หน้าครัว (หน้าเดียว: ออเดอร์ใหม่มีปุ่มรับ งานที่รับแล้วมีปุ่มอัพเดท)
+// 8.1 หน้าครัว (บิลที่ลูกค้าส่งมา บิลใหม่สุดขึ้นก่อน กดรับแล้วปุ่มกลายเป็นอัพเดท)
 app.get('/kitchen', (req, res) => {
     const rawMsg = String(req.query.msg || '');
     const msg = KITCHEN_MSG.includes(rawMsg) ? rawMsg : '';
@@ -886,7 +871,7 @@ app.get('/kitchen', (req, res) => {
         JOIN TABLES t     ON CAST(t.table_id AS TEXT) = CAST(s.table_id AS TEXT)
         JOIN MENU_ITEMS mi ON mi.menu_item_id = oi.menu_item_id
         WHERE oi.status IN ('ordered', 'cooking') AND LOWER(TRIM(s.status)) = 'active'
-        ORDER BY sent_at ASC, oi.order_item_id ASC
+        ORDER BY sent_at DESC, oi.order_item_id DESC
     `;
 
     db.all(sql, [], (err, rows) => {
@@ -895,7 +880,34 @@ app.get('/kitchen', (req, res) => {
             return res.status(500).send('เกิดข้อผิดพลาดในการดึงข้อมูลออเดอร์ครัว');
         }
 
-        res.render('kitchen', { bills: buildBills(rows, Date.now()).reverse(), msg: msg, mode: 'kitchen', title: 'ครัว - รายการอาหาร' });
+        // จัดแถวเป็นบิล (โต๊ะ + ออเดอร์ + รอบเวลาส่ง + สถานะ เดียวกัน = บิลเดียว)
+        const now = Date.now();
+        const groups = {};
+        const bills = [];
+        (rows || []).forEach((r) => {
+            const key = [r.table_id, r.order_id, String(r.sent_at), r.status].join('|');
+            if (!groups[key]) {
+                groups[key] = { table_id: r.table_id, table_number: r.table_number, status: r.status, items: [] };
+                bills.push(groups[key]);
+            }
+            groups[key].items.push(makeItem(r, now));
+        });
+        // เติมยอดรวม เวลา ป้าย และ id สำหรับปุ่มรับของแต่ละบิล
+        bills.forEach((b) => {
+            b.total = 0;
+            b.maxWait = 0;
+            b.hasNew = false;
+            b.items.forEach((i) => {
+                b.total += i.lineTotal;
+                if (i.waitMin > b.maxWait) b.maxWait = i.waitMin;
+                if (i.isNew) b.hasNew = true;
+            });
+            b.firstTimeTh = b.items[0].timeTh;
+            b.ids = b.items.map((i) => i.order_item_id).join(',');
+            b.action = (b.status === ST.ORDERED) ? 'accept' : 'update';
+        });
+
+        res.render('kitchen', { bills: bills, dishes: [], tables: [], msg: msg, mode: 'kitchen', page: 'kitchen', title: 'ครัว - รายการอาหาร' });
     });
 });
 
@@ -929,11 +941,77 @@ app.post('/kitchen/accept', (req, res) => {
     });
 });
 
-// 8.3 หน้าอัปเดตสถานะรายโต๊ะ (cooking / ready ของ session ที่ active)
+// 8.3 หน้าออเดอร์ที่ต้องทำ (แยกจานต่อจาน เฉพาะกำลังปรุง จานใหม่สุดก่อน ปุ่มเดียวคือปรุงเสร็จ)
+app.get('/kitchen/ordered', (req, res) => {
+    const rawMsg = String(req.query.msg || '');
+    const msg = KITCHEN_MSG.includes(rawMsg) ? rawMsg : '';
+
+    const sql = `
+        SELECT t.table_id, t.table_number, oi.order_item_id, oi.qty, oi.note, oi.status,
+               COALESCE(oi.sent_at, o.created_at) AS sent_at, mi.name, mi.price
+        FROM ORDER_ITEMS oi
+        JOIN ORDERS o     ON o.order_id = oi.order_id
+        JOIN SESSIONS s   ON s.session_id = o.session_id
+        JOIN TABLES t     ON CAST(t.table_id AS TEXT) = CAST(s.table_id AS TEXT)
+        JOIN MENU_ITEMS mi ON mi.menu_item_id = oi.menu_item_id
+        WHERE oi.status = 'cooking' AND LOWER(TRIM(s.status)) = 'active'
+        ORDER BY sent_at DESC, oi.order_item_id DESC
+    `;
+
+    db.all(sql, [], (err, rows) => {
+        if (err) {
+            console.error('Error fetching cooking dishes:', err.message);
+            return res.status(500).send('เกิดข้อผิดพลาดในการดึงข้อมูลออเดอร์ที่ต้องทำ');
+        }
+
+        const now = Date.now();
+        const dishes = [];
+        (rows || []).forEach((r) => {
+            const item = makeItem(r, now);
+            item.table_id = r.table_id;
+            item.table_number = r.table_number;
+            dishes.push(item);
+        });
+
+        res.render('kitchen', { bills: [], dishes: dishes, tables: [], msg: msg, mode: 'ordered', page: 'ordered', title: 'ออเดอร์ที่ต้องทำ' });
+    });
+});
+
+// 8.4 หน้าอัพเดทสถานะ (รายชื่อโต๊ะที่มีงานค้าง กดเข้าไปได้)
+app.get('/kitchen/status', (req, res) => {
+    const sql = `
+        SELECT t.table_id, t.table_number,
+               COUNT(*) AS total,
+               SUM(CASE WHEN oi.status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled
+        FROM ORDER_ITEMS oi
+        JOIN ORDERS o     ON o.order_id = oi.order_id
+        JOIN SESSIONS s   ON s.session_id = o.session_id
+        JOIN TABLES t     ON CAST(t.table_id AS TEXT) = CAST(s.table_id AS TEXT)
+        WHERE oi.status IN ('ordered', 'cooking', 'ready', 'cancelled', 'served') AND LOWER(TRIM(s.status)) = 'active'
+        GROUP BY t.table_id, t.table_number
+        ORDER BY CAST(t.table_number AS INTEGER) ASC
+    `;
+
+    db.all(sql, [], (err, rows) => {
+        if (err) {
+            console.error('Error fetching status tables:', err.message);
+            return res.status(500).send('เกิดข้อผิดพลาดในการดึงข้อมูลโต๊ะ');
+        }
+
+        res.render('kitchen', { bills: [], dishes: [], tables: rows || [], msg: '', mode: 'tables', page: 'status', title: 'อัพเดทสถานะอาหาร' });
+    });
+});
+
+// 8.5 หน้ารายละเอียดรายโต๊ะ (แยก 4 กอง: รอรับ กำลังปรุง พร้อมเสิร์ฟ ยกเลิกแล้ว)
 app.get('/kitchen/table/:table_id', (req, res) => {
     const tableId = req.params.table_id;
     const rawMsg = String(req.query.msg || '');
     const msg = KITCHEN_MSG.includes(rawMsg) ? rawMsg : '';
+    // จำหน้ามาเพื่อไฮไลต์แท็บและปุ่มกลับให้ถูก (kitchen / status / orders)
+    const rawFrom = String(req.query.from || '');
+    const fromPage = ['kitchen', 'status', 'orders'].includes(rawFrom) ? rawFrom : 'status';
+    const backUrl = fromPage === 'kitchen' ? '/kitchen' : (fromPage === 'orders' ? '/orders' : '/kitchen/status');
+    const backText = fromPage === 'kitchen' ? 'กลับหน้าครัว' : (fromPage === 'orders' ? 'กลับหน้ารายละเอียด' : 'กลับหน้าอัพเดท');
 
     db.get('SELECT table_id, table_number FROM TABLES WHERE CAST(table_id AS TEXT) = CAST(? AS TEXT)', [tableId], (err, table) => {
         if (err) {
@@ -943,14 +1021,14 @@ app.get('/kitchen/table/:table_id', (req, res) => {
         const tableInfo = table || { table_id: tableId, table_number: tableId };
 
         const sql = `
-            SELECT oi.order_item_id, oi.qty, oi.note, oi.status,
+            SELECT oi.order_item_id, oi.qty, oi.note, oi.status, oi.cancel_reason,
                    COALESCE(oi.sent_at, o.created_at) AS sent_at, mi.name
             FROM ORDER_ITEMS oi
             JOIN ORDERS o     ON o.order_id = oi.order_id
             JOIN SESSIONS s   ON s.session_id = o.session_id
             JOIN TABLES t     ON CAST(t.table_id AS TEXT) = CAST(s.table_id AS TEXT)
             JOIN MENU_ITEMS mi ON mi.menu_item_id = oi.menu_item_id
-            WHERE oi.status IN ('cooking', 'ready')
+            WHERE oi.status IN ('ordered', 'cooking', 'ready', 'cancelled', 'served')
               AND LOWER(TRIM(s.status)) = 'active'
               AND CAST(t.table_id AS TEXT) = CAST(? AS TEXT)
             ORDER BY sent_at DESC, oi.order_item_id DESC
@@ -963,45 +1041,52 @@ app.get('/kitchen/table/:table_id', (req, res) => {
             }
 
             const now = Date.now();
+            const ordered = [];
             const cooking = [];
             const ready = [];
+            const served = [];
+            const cancelled = [];
             (rows || []).forEach((r) => {
-                const sentMs = r.sent_at ? new Date(String(r.sent_at).replace(' ', 'T') + 'Z').getTime() : NaN;
-                const item = {
-                    order_item_id: r.order_item_id,
-                    qty: r.qty,
-                    note: r.note,
-                    name: r.name,
-                    sentMs: sentMs,
-                    timeTh: isNaN(sentMs) ? '-' : new Date(sentMs).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' }),
-                    isNew: !isNaN(sentMs) && (now - sentMs) >= 0 && (now - sentMs) <= 60000,
-                    waitMin: isNaN(sentMs) ? 0 : Math.max(0, Math.floor((now - sentMs) / 60000))
-                };
-                if (r.status === ST.COOKING) cooking.push(item);
-                else ready.push(item);
+                const item = makeItem(r, now);
+                if (r.status === ST.ORDERED) ordered.push(item);
+                else if (r.status === ST.COOKING) cooking.push(item);
+                else if (r.status === ST.READY) ready.push(item);
+                else if (r.status === ST.SERVED) served.push(item);
+                else cancelled.push(item);
             });
 
-            res.render('kitchen-detail', { table: tableInfo, cooking: cooking, ready: ready, msg: msg });
+            res.render('kitchen-detail', { table: tableInfo, ordered: ordered, cooking: cooking, ready: ready, served: served, cancelled: cancelled, msg: msg, page: (fromPage === 'orders' ? '' : fromPage), backUrl: backUrl, backText: backText });
         });
     });
 });
 
-// 8.4 เปลี่ยนสถานะรายจาน (ครัว: cooking <-> ready / เสิร์ฟ: ready -> served ห้ามข้ามขั้น)
+// 8.6 เปลี่ยนสถานะรายจาน (ครัว: cooking <-> ready / เสิร์ฟ: ready -> served / ยกเลิก: ต้องมีเหตุผล)
 app.post('/kitchen/item/:id/status', (req, res) => {
     const itemId = Number(req.params.id);
     const to = String(req.body.to || '');
     const tableId = String(req.body.table_id || '');
     const backTo = /^[0-9]+$/.test(tableId) ? '/kitchen/table/' + tableId : '/kitchen';
-    const homeBack = String(req.body.back || '') === '/orders' ? '/orders' : null;
+    // หน้าที่กดปุ่มมา (ให้เด้งกลับหน้านั้น): รายละเอียดเสิร์ฟ หรือ ออเดอร์ที่ต้องทำ
+    const BACK_OK = ['/orders', '/kitchen/ordered'];
+    const rawBack = String(req.body.back || '');
+    const homeBack = BACK_OK.includes(rawBack) ? rawBack : null;
     const backWithMsg = (key) => (homeBack || backTo) + ((homeBack || backTo).includes('?') ? '&' : '?') + 'msg=' + key;
 
+    // ยกเลิกต้องพิมพ์เหตุผลมาด้วย (เสิร์ฟแล้วห้ามยกเลิก)
+    const isCancel = (to === ST.CANCELLED);
+    const reason = String(req.body.reason || '').trim().slice(0, 200);
     let stepMap = null;
     if (Object.prototype.hasOwnProperty.call(KITCHEN_STEP, to)) stepMap = KITCHEN_STEP;
     else if (Object.prototype.hasOwnProperty.call(SERVE_STEP, to)) stepMap = SERVE_STEP;
-    if (!Number.isInteger(itemId) || itemId <= 0 || !stepMap) {
+    if (!Number.isInteger(itemId) || itemId <= 0) {
         return res.redirect(backWithMsg('invalid'));
     }
-    const from = stepMap[to];
+    if (isCancel && reason === '') {
+        return res.redirect(backWithMsg('invalid'));
+    }
+    if (!isCancel && !stepMap) {
+        return res.redirect(backWithMsg('invalid'));
+    }
 
     db.get("SELECT employee_id FROM EMPLOYEES WHERE role = 'kitchen' LIMIT 1", [], (err, emp) => {
         if (err || !emp) {
@@ -1009,35 +1094,44 @@ app.post('/kitchen/item/:id/status', (req, res) => {
             return res.status(500).send('เกิดข้อผิดพลาดในการอัปเดตสถานะอาหาร');
         }
 
-        db.run('UPDATE ORDER_ITEMS SET status = ?, updated_by_employee_id = ? WHERE order_item_id = ? AND status = ?',
-            [to, emp.employee_id, itemId, from], function (err) {
-                if (err) {
-                    console.error('Error updating kitchen item status:', err.message);
-                    return res.status(500).send('เกิดข้อผิดพลาดในการอัปเดตสถานะอาหาร');
-                }
-                if (this.changes === 0) {
-                    return res.redirect(backWithMsg('changed'));
-                }
-                res.redirect(homeBack || backTo);
-            });
+        // ตอบกลับเหมือนกันทั้งสองทาง: ไม่เปลี่ยนแถว = สถานะไม่ตรงแล้ว
+        const afterUpdate = function (err) {
+            if (err) {
+                console.error('Error updating kitchen item status:', err.message);
+                return res.status(500).send('เกิดข้อผิดพลาดในการอัปเดตสถานะอาหาร');
+            }
+            if (this.changes === 0) {
+                return res.redirect(backWithMsg('changed'));
+            }
+            res.redirect(homeBack || backTo);
+        };
+
+        if (isCancel) {
+            db.run("UPDATE ORDER_ITEMS SET status = 'cancelled', cancel_reason = ?, updated_by_employee_id = ? WHERE order_item_id = ? AND status IN ('ordered', 'cooking', 'ready')",
+                [reason, emp.employee_id, itemId], afterUpdate);
+        } else {
+            const from = stepMap[to];
+            db.run('UPDATE ORDER_ITEMS SET status = ?, updated_by_employee_id = ? WHERE order_item_id = ? AND status = ?',
+                [to, emp.employee_id, itemId, from], afterUpdate);
+        }
     });
 });
 
-// 8.5 หน้ารายละเอียดคำสั่งซื้อ (พนักงานเสิร์ฟ/แคชเชียร์ดูได้: เห็นทุกบิล บิลใหม่ขึ้นก่อน)
+// 8.7 หน้ารายละเอียดคำสั่งซื้อ (พนักงานเสิร์ฟ/แคชเชียร์ดูได้: เห็นทุกบิล บิลใหม่ขึ้นก่อน)
 app.get('/orders', (req, res) => {
     const rawMsg = String(req.query.msg || '');
     const msg = KITCHEN_MSG.includes(rawMsg) ? rawMsg : '';
 
     const sql = `
-        SELECT t.table_id, t.table_number, o.order_id, oi.order_item_id, oi.qty, oi.note, oi.status,
+        SELECT t.table_id, t.table_number, o.order_id, oi.order_item_id, oi.qty, oi.note, oi.status, oi.cancel_reason,
                COALESCE(oi.sent_at, o.created_at) AS sent_at, mi.name, mi.price
         FROM ORDER_ITEMS oi
         JOIN ORDERS o     ON o.order_id = oi.order_id
         JOIN SESSIONS s   ON s.session_id = o.session_id
         JOIN TABLES t     ON CAST(t.table_id AS TEXT) = CAST(s.table_id AS TEXT)
         JOIN MENU_ITEMS mi ON mi.menu_item_id = oi.menu_item_id
-        WHERE oi.status IN ('ordered', 'cooking', 'ready') AND LOWER(TRIM(s.status)) = 'active'
-        ORDER BY sent_at ASC, oi.order_item_id ASC
+        WHERE oi.status IN ('ordered', 'cooking', 'ready', 'cancelled') AND LOWER(TRIM(s.status)) = 'active'
+        ORDER BY sent_at DESC, oi.order_item_id DESC
     `;
 
     db.all(sql, [], (err, rows) => {
@@ -1046,9 +1140,35 @@ app.get('/orders', (req, res) => {
             return res.status(500).send('เกิดข้อผิดพลาดในการดึงข้อมูลคำสั่งซื้อ');
         }
 
-        const bills = buildBills(rows, Date.now()).reverse();
+        const now = Date.now();
+        const groups = {};
+        const bills = [];
+        (rows || []).forEach((r) => {
+            const key = [r.table_id, r.order_id, String(r.sent_at), r.status].join('|');
+            if (!groups[key]) {
+                groups[key] = { table_id: r.table_id, table_number: r.table_number, status: r.status, items: [] };
+                bills.push(groups[key]);
+            }
+            groups[key].items.push(makeItem(r, now));
+        });
+        bills.forEach((b) => {
+            b.total = 0;
+            b.maxWait = 0;
+            b.hasNew = false;
+            b.items.forEach((i) => {
+                b.total += i.lineTotal;
+                if (i.waitMin > b.maxWait) b.maxWait = i.waitMin;
+                if (i.isNew) b.hasNew = true;
+            });
+            b.firstTimeTh = b.items[0].timeTh;
+            b.ids = b.items.map((i) => i.order_item_id).join(',');
+            if (b.status === ST.ORDERED) b.action = 'accept';
+            else if (b.status === ST.COOKING) b.action = 'update';
+            else if (b.status === ST.READY) b.action = 'serve';
+            else b.action = 'none';
+        });
 
-        res.render('kitchen', { bills: bills, msg: msg, mode: 'server', title: 'รายละเอียดคำสั่งซื้อ' });
+        res.render('kitchen', { bills: bills, dishes: [], tables: [], msg: msg, mode: 'server', page: '', title: 'รายละเอียดคำสั่งซื้อ' });
     });
 });
 

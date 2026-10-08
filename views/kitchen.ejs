@@ -7,15 +7,52 @@
     <style>
         * { box-sizing: border-box; }
         body {
-            font-family: 'Kanit', sans-serif;
-            background-color: #f8fafc;
+            font-family: 'Kanit', Tahoma, sans-serif;
+            background: linear-gradient(180deg, #f8fafc 0%, #edf1f6 100%);
+            background-attachment: fixed;
             margin: 0;
-            padding: 16px;
+            padding: 20px;
             color: #1e293b;
         }
-        .kitchen-container { max-width: 1200px; margin: 0 auto; }
-        .kitchen-header { text-align: center; margin-bottom: 16px; }
-        .kitchen-header h1 { margin: 0 0 12px 0; font-size: 1.8rem; }
+        /* แท็บด้านข้าง: ครัว / ออเดอร์ที่ต้องทำ / อัพเดทสถานะ */
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 190px;
+            background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+            padding: 22px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            box-shadow: 4px 0 14px rgba(0, 0, 0, 0.18);
+        }
+        .sidebar a {
+            color: #cbd5e1;
+            text-decoration: none;
+            padding: 14px 16px;
+            min-height: 48px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border-radius: 12px;
+            transition: background-color 0.2s, color 0.2s;
+        }
+        .sidebar a:hover { background-color: rgba(255, 255, 255, 0.08); color: #ffffff; }
+        .sidebar a.active {
+            background-color: #16a34a;
+            color: #ffffff;
+            box-shadow: 0 4px 10px rgba(22, 163, 74, 0.4);
+        }
+        .kitchen-container { max-width: 1200px; margin: 0 auto 0 210px; }
+        @media (max-width: 700px) {
+            .sidebar { position: static; width: auto; flex-direction: row; padding: 8px; border-radius: 14px; margin-bottom: 12px; }
+            .sidebar a { flex: 1; text-align: center; font-size: 1rem; padding: 12px 4px; }
+            .kitchen-container { margin-left: auto; }
+        }
+        .kitchen-header { text-align: center; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 3px solid #16a34a; }
+        .kitchen-header h1 { margin: 0; font-size: 2rem; color: #0f172a; letter-spacing: 0.5px; text-wrap: balance; }
+        .count-line { margin: 6px 0 0 0; font-size: 1rem; color: #64748b; }
         .card-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -26,39 +63,66 @@
         }
         .order-card {
             background-color: #ffffff;
-            border: 2px solid #e2e8f0;
+            border: 1px solid #e2e8f0;
             border-radius: 12px;
-            padding: 16px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            padding: 18px;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+            transition: transform 0.15s ease-out, border-color 0.15s ease-out;
         }
+        .order-card:hover {
+            transform: translateY(-2px);
+            border-color: #cbd5e1;
+        }
+        /* สีพื้นบอกสถานะบิล (พื้น tint ทั้งใบ ไม่ใช่แถบข้าง) */
+        .order-card.acc-new { background-color: #f6fef9; }
+        .order-card.acc-cook { background-color: #f5f9ff; }
+        .order-card.acc-serve { background-color: #f2fafd; }
+        .order-card.cancelled { background-color: #f8fafc; opacity: 0.8; }
         .card-head {
             display: flex;
             justify-content: space-between;
             align-items: baseline;
-            border-bottom: 1px solid #e2e8f0;
-            padding-bottom: 8px;
-            margin-bottom: 8px;
+            gap: 8px;
+            border-bottom: 1px solid #eef2f7;
+            padding-bottom: 10px;
+            margin-bottom: 10px;
         }
-        .table-name { font-size: 1.4rem; font-weight: bold; color: #334155; }
-        .order-time { font-size: 0.95rem; color: #64748b; }
-        .dish { padding: 6px 0; font-size: 1.15rem; }
+        .table-name { font-size: 1.45rem; font-weight: bold; color: #0f172a; }
+        .order-time { font-size: 0.95rem; color: #64748b; white-space: nowrap; }
+        .dish { padding: 7px 0; font-size: 1.15rem; }
         .dish-row-line { display: flex; justify-content: space-between; gap: 8px; }
-        .bill-total {
-            display: flex;
-            justify-content: space-between;
-            border-top: 1px solid #e2e8f0;
-            margin-top: 8px;
-            padding-top: 8px;
-            font-size: 1.2rem;
-            font-weight: bold;
-            color: #334155;
-        }
         .dish-note {
             display: block;
             color: #dc2626;
             font-style: italic;
             font-size: 1rem;
             word-break: break-word;
+            background-color: #fef2f2;
+            border-radius: 8px;
+            padding: 4px 8px;
+            margin-top: 4px;
+        }
+        .cancel-note {
+            display: block;
+            color: #991b1b;
+            font-weight: bold;
+            font-size: 1rem;
+            word-break: break-word;
+            margin-top: 6px;
+            background-color: #fee2e2;
+            border-radius: 8px;
+            padding: 6px 8px;
+        }
+        .bill-total {
+            display: flex;
+            justify-content: space-between;
+            background-color: #f8fafc;
+            border-radius: 10px;
+            margin-top: 10px;
+            padding: 10px 12px;
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: #0f172a;
         }
         .btn-accept {
             width: 100%;
@@ -69,10 +133,14 @@
             color: #ffffff;
             background-color: #16a34a;
             border: none;
-            border-radius: 10px;
+            border-radius: 12px;
             cursor: pointer;
+            box-shadow: 0 4px 10px rgba(22, 163, 74, 0.35);
+            transition: transform 0.1s, background-color 0.2s;
         }
-        .btn-accept:disabled { background-color: #94a3b8; cursor: default; }
+        .btn-accept:hover { background-color: #15803d; }
+        .btn-accept:active { transform: scale(0.98); }
+        .btn-accept:disabled { background-color: #94a3b8; cursor: default; box-shadow: none; }
         .btn-link {
             display: block;
             text-align: center;
@@ -83,61 +151,30 @@
             font-weight: bold;
             color: #ffffff;
             background-color: #2563eb;
-            border-radius: 10px;
+            border-radius: 12px;
             text-decoration: none;
+            box-shadow: 0 4px 10px rgba(37, 99, 235, 0.35);
+            transition: transform 0.1s, background-color 0.2s;
         }
-        .alert {
-            text-align: center;
-            font-size: 1.1rem;
-            font-weight: bold;
-            color: #991b1b;
-            background-color: #fee2e2;
-            border: 2px solid #ef4444;
-            border-radius: 12px;
-            padding: 12px;
-            margin-bottom: 16px;
-        }
-        #offline {
-            text-align: center;
-            font-size: 1.1rem;
-            font-weight: bold;
-            color: #92400e;
-            background-color: #fef3c7;
-            border: 2px solid #f59e0b;
-            border-radius: 12px;
-            padding: 12px;
-            margin-bottom: 16px;
-        }
-        .badge-new {
-            display: inline-block;
-            font-size: 0.9rem;
-            font-weight: bold;
-            color: #ffffff;
-            background-color: #ef4444;
-            border-radius: 20px;
-            padding: 4px 12px;
-            margin-left: 8px;
-        }
-        .badge-cooking {
-            display: inline-block;
-            font-size: 0.9rem;
-            font-weight: bold;
-            color: #ffffff;
-            background-color: #f59e0b;
-            border-radius: 20px;
-            padding: 4px 12px;
-            margin-left: 8px;
-        }
-        .badge-ready {
-            display: inline-block;
-            font-size: 0.9rem;
+        .btn-link:hover { background-color: #1d4ed8; }
+        .btn-link:active { transform: scale(0.98); }
+        .btn-done {
+            width: 100%;
+            margin-top: 12px;
+            min-height: 48px;
+            font-size: 1.15rem;
             font-weight: bold;
             color: #ffffff;
             background-color: #16a34a;
-            border-radius: 20px;
-            padding: 4px 12px;
-            margin-left: 8px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(22, 163, 74, 0.35);
+            transition: transform 0.1s, background-color 0.2s;
         }
+        .btn-done:hover { background-color: #15803d; }
+        .btn-done:active { transform: scale(0.98); }
+        .btn-done:disabled { background-color: #94a3b8; cursor: default; box-shadow: none; }
         .btn-serve {
             width: 100%;
             margin-top: 8px;
@@ -147,32 +184,149 @@
             color: #ffffff;
             background-color: #0284c7;
             border: none;
-            border-radius: 10px;
+            border-radius: 12px;
             cursor: pointer;
+            box-shadow: 0 4px 10px rgba(2, 132, 199, 0.35);
+            transition: transform 0.1s, background-color 0.2s;
         }
-        .btn-serve:disabled { background-color: #94a3b8; cursor: default; }
+        .btn-serve:hover { background-color: #0369a1; }
+        .btn-serve:active { transform: scale(0.98); }
+        .btn-serve:disabled { background-color: #94a3b8; cursor: default; box-shadow: none; }
+        .table-link {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            background-color: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 22px 18px;
+            min-height: 48px;
+            text-decoration: none;
+            color: #0f172a;
+            font-size: 1.3rem;
+            font-weight: bold;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+            transition: transform 0.15s ease-out, border-color 0.15s ease-out;
+        }
+        .table-link:hover {
+            transform: translateY(-2px);
+            border-color: #93c5fd;
+        }
+        .alert {
+            text-align: center;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #991b1b;
+            background-color: #fee2e2;
+            border: 1px solid #fca5a5;
+            border-radius: 14px;
+            padding: 12px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 8px rgba(220, 38, 38, 0.12);
+        }
+        #offline {
+            text-align: center;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #92400e;
+            background-color: #fef3c7;
+            border: 1px solid #fcd34d;
+            border-radius: 14px;
+            padding: 12px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 8px rgba(245, 158, 11, 0.15);
+        }
+        .badge-new {
+            display: inline-block;
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: #ffffff;
+            background-color: #ef4444;
+            border-radius: 20px;
+            padding: 5px 13px;
+            margin-left: 8px;
+            box-shadow: 0 2px 6px rgba(239, 68, 68, 0.4);
+        }
+        .badge-cooking {
+            display: inline-block;
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: #ffffff;
+            background-color: #b45309;
+            border-radius: 20px;
+            padding: 5px 13px;
+            margin-left: 8px;
+        }
+        .badge-ready {
+            display: inline-block;
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: #ffffff;
+            background-color: #16a34a;
+            border-radius: 20px;
+            padding: 5px 13px;
+            margin-left: 8px;
+            box-shadow: 0 2px 6px rgba(22, 163, 74, 0.4);
+        }
+        .badge-cancelled {
+            display: inline-block;
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: #ffffff;
+            background-color: #64748b;
+            border-radius: 20px;
+            padding: 5px 13px;
+            margin-left: 8px;
+        }
         .wait { font-size: 0.95rem; color: #64748b; }
         .wait-over { color: #dc2626; font-weight: bold; }
         .empty-state {
             text-align: center;
             color: #64748b;
             font-size: 1.2rem;
-            padding: 48px 16px;
+            padding: 56px 16px;
             background-color: #ffffff;
             border: 2px dashed #cbd5e1;
-            border-radius: 12px;
+            border-radius: 16px;
+        }
+        .empty-state small {
+            display: block;
+            margin-top: 8px;
+            font-size: 1rem;
+            color: #64748b;
+        }
+        /* โฟกัสคีย์บอร์ดต้องเห็นชัด + เคารพ reduced motion */
+        a:focus-visible, button:focus-visible {
+            outline: 3px solid #2563eb;
+            outline-offset: 2px;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            * { transition: none !important; }
         }
     </style>
 </head>
 <body>
+<nav class="sidebar">
+    <a href="/kitchen" class="<%= page === 'kitchen' ? 'active' : '' %>">ครัว</a>
+    <a href="/kitchen/ordered" class="<%= page === 'ordered' ? 'active' : '' %>">ออเดอร์ที่ต้องทำ</a>
+    <a href="/kitchen/status" class="<%= page === 'status' ? 'active' : '' %>">อัพเดทสถานะ</a>
+</nav>
 <div class="kitchen-container">
     <header class="kitchen-header">
         <h1><%= title %></h1>
+        <% if (mode === 'kitchen' || mode === 'server') { %>
+            <p class="count-line">ทั้งหมด <%= bills.length %> บิล</p>
+        <% } else if (mode === 'ordered') { %>
+            <p class="count-line">ทั้งหมด <%= dishes.length %> จาน</p>
+        <% } else { %>
+            <p class="count-line">ทั้งหมด <%= tables.length %> โต๊ะ</p>
+        <% } %>
     </header>
 
     <div id="offline" hidden>ขาดการเชื่อมต่อ กำลังลองใหม่...</div>
     <main id="content">
-        <% const isServer = (typeof mode !== 'undefined' && mode === 'server'); %>
+        <% const isServer = (mode === 'server'); %>
         <% if (msg === 'taken') { %>
             <div class="alert">มีคนรับรายการนี้ไปแล้ว</div>
         <% } else if (msg === 'invalid') { %>
@@ -180,55 +334,111 @@
         <% } else if (msg === 'changed') { %>
             <div class="alert">สถานะรายการเปลี่ยนไปแล้ว</div>
         <% } %>
-        <% if (bills && bills.length > 0) { %>
-            <div class="card-grid">
-                <% bills.forEach(function(b) { %>
-                    <section class="order-card">
-                        <div class="card-head">
-                            <span class="table-name">โต๊ะ <%= b.table_number %><% if (b.hasNew) { %><span class="badge-new">ใหม่</span><% } %><% if (b.action === 'update') { %><span class="badge-cooking">กำลังปรุง</span><% } %><% if (b.action === 'serve') { %><span class="badge-ready">พร้อมเสิร์ฟ</span><% } %></span>
-                            <span class="order-time">#<%= b.order_id %> · <%= b.firstTimeTh %> น. <span class="wait<%= b.maxWait > 10 ? ' wait-over' : '' %>">(รอ <%= b.maxWait %> นาที)</span></span>
-                        </div>
-                        <% b.items.forEach(function(item) { %>
-                            <div class="dish">
-                                <div class="dish-row-line">
-                                    <span><%= item.qty %>× <%= item.name %></span>
-                                    <span><%= item.lineTotal.toLocaleString() %></span>
+
+        <% if (mode === 'kitchen' || mode === 'server') { %>
+            <% if (bills.length > 0) { %>
+                <div class="card-grid">
+                    <% bills.forEach(function(b, i) { %>
+                        <section class="order-card<%= b.action === 'accept' ? ' acc-new' : '' %><%= b.action === 'update' ? ' acc-cook' : '' %><%= b.action === 'serve' ? ' acc-serve' : '' %><%= b.action === 'none' ? ' cancelled' : '' %>">
+                            <div class="card-head">
+                                <span class="table-name">โต๊ะ <%= b.table_number %><% if (b.hasNew) { %><span class="badge-new">ใหม่</span><% } %><% if (b.action === 'update') { %><span class="badge-cooking">กำลังปรุง</span><% } %><% if (b.action === 'serve') { %><span class="badge-ready">พร้อมเสิร์ฟ</span><% } %><% if (b.action === 'none') { %><span class="badge-cancelled">ยกเลิกแล้ว</span><% } %></span>
+                                <span class="order-time">#<%= bills.length - i %> · <%= b.firstTimeTh %> น. <span class="wait<%= b.maxWait > 10 ? ' wait-over' : '' %>">(รอ <%= b.maxWait %> นาที)</span></span>
+                            </div>
+                            <% b.items.forEach(function(item) { %>
+                                <div class="dish">
+                                    <div class="dish-row-line">
+                                        <span><%= item.qty %>× <%= item.name %></span>
+                                        <span><%= item.lineTotal.toLocaleString() %></span>
+                                    </div>
+                                    <% if (item.note) { %>
+                                        <span class="dish-note">หมายเหตุ: <%= item.note %></span>
+                                    <% } %>
+                                    <% if (isServer && b.action === 'serve') { %>
+                                        <form method="POST" action="/kitchen/item/<%= item.order_item_id %>/status" onsubmit="return busySubmit(this, 'กำลังบันทึก...');">
+                                            <input type="hidden" name="to" value="served">
+                                            <input type="hidden" name="table_id" value="<%= b.table_id %>">
+                                            <input type="hidden" name="back" value="/orders">
+                                            <button type="submit" class="btn-serve">เสิร์ฟแล้ว</button>
+                                        </form>
+                                    <% } %>
                                 </div>
-                                <% if (item.note) { %>
-                                    <span class="dish-note">หมายเหตุ: <%= item.note %></span>
-                                <% } %>
-                                <% if (isServer && b.action === 'serve') { %>
-                                    <form method="POST" action="/kitchen/item/<%= item.order_item_id %>/status" onsubmit="var x=this.querySelector('[type=submit]');if(x)x.disabled=true;">
-                                        <input type="hidden" name="to" value="served">
-                                        <input type="hidden" name="table_id" value="<%= b.table_id %>">
-                                        <input type="hidden" name="back" value="/orders">
-                                        <button type="submit" class="btn-serve">เสิร์ฟแล้ว</button>
-                                    </form>
+                            <% }); %>
+                            <% if (b.action === 'none') { %>
+                                <span class="cancel-note">ยกเลิกแล้ว: <%= b.items[0].cancel_reason %></span>
+                            <% } %>
+                            <div class="bill-total"><span>รวม</span><span>฿<%= b.total.toLocaleString() %></span></div>
+                            <% if (!isServer && b.action === 'accept') { %>
+                                <form method="POST" action="/kitchen/accept" onsubmit="return busySubmit(this, 'กำลังรับ...');">
+                                    <input type="hidden" name="ids" value="<%= b.ids %>">
+                                    <button type="submit" class="btn-accept">รับรายการอาหาร</button>
+                                </form>
+                            <% } %>
+                            <% if (!isServer && b.action === 'update') { %>
+                                <a class="btn-link" href="/kitchen/table/<%= b.table_id %>?from=kitchen">อัพเดทสถานะ</a>
+                            <% } %>
+                            <% if (isServer && b.action !== 'none') { %>
+                                <a class="btn-link" href="/kitchen/table/<%= b.table_id %>?from=orders">ดูรายละเอียด</a>
+                            <% } %>
+                        </section>
+                    <% }); %>
+                </div>
+            <% } else { %>
+                <div class="empty-state">ไม่มีออเดอร์ใหม่<small>บิลที่ลูกค้ากดส่งจะขึ้นที่นี่เอง ไม่ต้องกดรีเฟรช</small></div>
+            <% } %>
+        <% } %>
+
+        <% if (mode === 'ordered') { %>
+            <% if (dishes.length > 0) { %>
+                <div class="card-grid">
+                    <% dishes.forEach(function(d) { %>
+                        <section class="order-card">
+                            <div class="card-head">
+                                <span class="table-name">โต๊ะ <%= d.table_number %></span>
+                                <span class="order-time"><%= d.timeTh %> น.</span>
+                            </div>
+                            <div class="dish">
+                                <span><%= d.qty %>× <%= d.name %></span>
+                                <% if (d.note) { %>
+                                    <span class="dish-note">หมายเหตุ: <%= d.note %></span>
                                 <% } %>
                             </div>
-                        <% }); %>
-                        <div class="bill-total"><span>รวม</span><span>฿<%= b.total.toLocaleString() %></span></div>
-                        <% if (!isServer && b.action === 'accept') { %>
-                            <form method="POST" action="/kitchen/accept" onsubmit="var b=this.querySelector('[type=submit]');if(b)b.disabled=true;">
-                                <input type="hidden" name="ids" value="<%= b.ids %>">
-                                <button type="submit" class="btn-accept">รับรายการอาหาร</button>
+                            <form method="POST" action="/kitchen/item/<%= d.order_item_id %>/status" onsubmit="return busySubmit(this, 'กำลังบันทึก...');">
+                                <input type="hidden" name="to" value="ready">
+                                <input type="hidden" name="table_id" value="<%= d.table_id %>">
+                                <input type="hidden" name="back" value="/kitchen/ordered">
+                                <button type="submit" class="btn-done">ปรุงอาหารเสร็จแล้ว</button>
                             </form>
-                        <% } %>
-                        <% if (!isServer && b.action === 'update') { %>
-                            <a class="btn-link" href="/kitchen/table/<%= b.table_id %>">อัพเดทสถานะ</a>
-                        <% } %>
-                        <% if (isServer) { %>
-                            <a class="btn-link" href="/kitchen/table/<%= b.table_id %>">ดูรายละเอียด</a>
-                        <% } %>
-                    </section>
-                <% }); %>
-            </div>
-        <% } else { %>
-            <div class="empty-state">ไม่มีออเดอร์ใหม่</div>
+                        </section>
+                    <% }); %>
+                </div>
+            <% } else { %>
+                <div class="empty-state">ไม่มีออเดอร์ที่ต้องทำ<small>จานที่กดรับแล้วจะมาอยู่ที่นี่</small></div>
+            <% } %>
+        <% } %>
+
+        <% if (mode === 'tables') { %>
+            <% if (tables.length > 0) { %>
+                <div class="card-grid">
+                    <% tables.forEach(function(t) { %>
+                        <a class="table-link" href="/kitchen/table/<%= t.table_id %>?from=status">
+                            <span>โต๊ะ <%= t.table_number %></span>
+                            <span>สั่ง <%= t.total %> รายการ<% if (t.cancelled > 0) { %> · ยกเลิก <%= t.cancelled %> รายการ<% } %></span>
+                        </a>
+                    <% }); %>
+                </div>
+            <% } else { %>
+                <div class="empty-state">ไม่มีโต๊ะที่ต้องอัพเดท<small>โต๊ะที่มีงานค้างจะขึ้นที่นี่ กดเพื่อดูรายจาน</small></div>
+            <% } %>
         <% } %>
     </main>
 </div>
 <script>
+    // กดปุ่มแล้วล็อกกันกดซ้ำ + เปลี่ยนข้อความว่ากำลังทำ
+    function busySubmit(f, text) {
+        const b = f.querySelector('[type=submit]');
+        if (b) { b.disabled = true; b.textContent = text; }
+        return true;
+    }
     (function () {
         const p = new URLSearchParams(location.search);
         if (p.has('msg')) {
@@ -238,12 +448,15 @@
         }
     })();
     setInterval(async () => {
+        if (document.hidden) return;
+        const y = window.scrollY;
         try {
             const res = await fetch(location.href, { cache: 'no-store' });
             if (!res.ok) throw new Error('bad status');
             const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
             document.getElementById('content').innerHTML = doc.getElementById('content').innerHTML;
             document.getElementById('offline').hidden = true;
+            window.scrollTo(0, y);
         } catch (e) {
             document.getElementById('offline').hidden = false;
         }
