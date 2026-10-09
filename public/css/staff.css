@@ -1,0 +1,404 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;500;600;700&display=swap');
+
+:root {
+    color-scheme: light;
+    --staff-bg: #f4f6f4;
+    --staff-panel: #ffffff;
+    --staff-panel-soft: #f8faf8;
+    --staff-line: #dce4de;
+    --staff-text: #1f2b23;
+    --staff-muted: #526257;
+    --staff-green: #166534;
+    --staff-red: #991b1b;
+    --staff-amber: #92400e;
+    --staff-blue: #075985;
+}
+
+body.staff-ui {
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+    color: var(--staff-text);
+    background: var(--staff-bg);
+    font-family: 'Noto Sans Thai', Tahoma, sans-serif;
+}
+
+body.staff-ui * {
+    box-sizing: border-box;
+    font-family: 'Noto Sans Thai', Tahoma, sans-serif;
+}
+
+body.staff-ui ::selection { color: #fff; background: #166534; }
+body.staff-ui a:focus-visible,
+body.staff-ui button:focus-visible,
+body.staff-ui input:focus-visible {
+    outline: 3px solid rgba(22, 101, 52, 0.45);
+    outline-offset: 2px;
+}
+
+.staff-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    min-height: 64px;
+    padding: 10px 28px;
+    border-bottom: 1px solid var(--staff-line);
+    background: #fff;
+}
+
+.staff-brand {
+    color: var(--staff-text);
+    font-size: 14px;
+    font-weight: 700;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.staff-brand span {
+    margin-left: 10px;
+    color: var(--staff-muted);
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.staff-nav { display: flex; align-items: center; gap: 6px; }
+.staff-nav a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 38px;
+    padding: 7px 13px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    color: #47564b;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+}
+.staff-nav a:hover { color: #14532d; background: #f0f5f1; }
+.staff-nav a.active { border-color: #c7dacb; color: #14532d; background: #edf6ef; }
+
+body.staff-ui .sidebar {
+    width: 210px;
+    padding: 24px 14px;
+    border-right: 1px solid var(--staff-line);
+    background: #fff;
+    box-shadow: none;
+}
+
+body.staff-ui .sidebar a {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 10px 12px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    color: #47564b;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+body.staff-ui .sidebar a:hover { color: #14532d; background: #f0f5f1; }
+body.staff-ui .sidebar a.active { border-color: #c7dacb; color: #14532d; background: #edf6ef; box-shadow: none; }
+body.staff-ui .sidebar .staff-brand-link {
+    display: block;
+    min-height: auto;
+    margin: 0 3px 18px;
+    padding: 4px 8px 16px;
+    border: 0;
+    border-bottom: 1px solid var(--staff-line);
+    border-radius: 0;
+    color: var(--staff-text);
+    font-size: 14px;
+    font-weight: 700;
+}
+body.staff-ui .staff-brand-link span {
+    display: block;
+    margin-top: 3px;
+    color: var(--staff-green);
+    font-size: 10px;
+    letter-spacing: 1px;
+}
+
+body.staff-ui .kitchen-container {
+    max-width: 1440px;
+    margin: 0 auto 0 234px;
+    padding: 28px 32px 48px;
+}
+body.staff-ui .kitchen-header {
+    margin-bottom: 22px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--staff-line);
+    text-align: left;
+}
+body.staff-ui .kitchen-header h1 { color: var(--staff-text); font-size: 24px; font-weight: 700; }
+body.staff-ui .count-line { margin-top: 4px; color: var(--staff-muted); font-size: 13px; }
+body.staff-ui .card-grid { grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 14px; }
+body.staff-ui .card-grid.status-table-list {
+    display: flex;
+    grid-template-columns: none;
+    align-items: stretch;
+    gap: 14px;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    padding: 2px 2px 16px;
+    scroll-snap-type: x mandatory;
+    scrollbar-color: #9aaa9e #e8eee9;
+    scrollbar-width: thin;
+    touch-action: pan-x pan-y;
+    -webkit-overflow-scrolling: touch;
+}
+body.staff-ui .card-grid.status-table-list:focus-visible {
+    outline: 3px solid #166534;
+    outline-offset: 3px;
+}
+body.staff-ui .status-table-list > .status-table-card {
+    flex: 0 0 min(100%, 420px);
+    max-width: none;
+    scroll-snap-align: start;
+}
+body.staff-ui .table-status-summary button {
+    border-color: #c8d8cc;
+    color: #214b32;
+    background: #e8f0e9;
+}
+body.staff-ui .table-status-summary button:hover { background: #dce9df; }
+body.staff-ui .table-status-summary button:focus-visible {
+    outline: 3px solid #2f6b45;
+    outline-offset: 2px;
+}
+body.staff-ui .status-scroll-hint {
+    margin: 0 0 8px;
+    color: var(--staff-muted);
+    font-size: 12px;
+}
+body.staff-ui .order-card,
+body.staff-ui .dish-card,
+body.staff-ui .table-link {
+    border: 1px solid var(--staff-line);
+    border-radius: 8px;
+    color: var(--staff-text);
+    background: var(--staff-panel);
+    box-shadow: 0 2px 8px rgba(24, 39, 28, 0.06);
+}
+body.staff-ui .order-card:hover,
+body.staff-ui .table-link:hover { transform: none; border-color: #a9bdae; background: #fff; }
+body.staff-ui .order-card.acc-new { background: #f1f8f2; }
+body.staff-ui .order-card.acc-cook { background: #f4f7fb; }
+body.staff-ui .order-card.acc-serve { background: #f0f8fa; }
+body.staff-ui .order-card.cancelled { background: #f5f6f5; opacity: 0.82; }
+body.staff-ui .card-head { align-items: center; border-bottom-color: #e6ece7; }
+body.staff-ui .table-name,
+body.staff-ui .bill-total,
+body.staff-ui .table-link { color: var(--staff-text); }
+body.staff-ui .table-name { font-size: 18px; }
+body.staff-ui .order-time,
+body.staff-ui .wait { color: var(--staff-muted); }
+body.staff-ui .wait-over { color: var(--staff-red); }
+body.staff-ui .dish { color: #334238; font-size: 14px; }
+body.staff-ui .dish-row-line { align-items: baseline; }
+body.staff-ui .dish-note { border: 1px solid #f0d9ae; color: #713f12; background: #fff8e8; font-style: normal; }
+body.staff-ui .cancel-note { border: 1px solid #efc4c1; color: #7f1d1d; background: #fff1f0; }
+body.staff-ui .bill-total { border: 1px solid var(--staff-line); background: var(--staff-panel-soft); font-size: 14px; }
+
+body.staff-ui .btn-accept,
+body.staff-ui .btn-done,
+body.staff-ui .btn-serve,
+body.staff-ui .btn-link,
+body.staff-ui .btn-back-step,
+body.staff-ui .btn-cancel,
+body.staff-ui .checkout-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 42px;
+    padding: 9px 14px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    box-shadow: none;
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+}
+body.staff-ui .btn-accept,
+body.staff-ui .btn-done,
+body.staff-ui .checkout-btn { color: #fff; background: #166534; }
+body.staff-ui .btn-accept:hover,
+body.staff-ui .btn-done:hover,
+body.staff-ui .checkout-btn:hover { background: #14532d; }
+body.staff-ui .btn-link,
+body.staff-ui .btn-serve { color: #fff; background: #0369a1; }
+body.staff-ui .btn-link:hover,
+body.staff-ui .btn-serve:hover { background: #075985; }
+body.staff-ui .btn-back-step { border-color: #cbd5ce; color: #334238; background: #f1f5f2; }
+body.staff-ui .btn-cancel { border-color: #e8c4c1; color: #991b1b; background: #fff5f4; }
+body.staff-ui button:disabled { color: #647268; background: #e5e9e6; box-shadow: none; cursor: not-allowed; }
+body.staff-ui .table-link { min-height: 84px; padding: 18px; font-size: 14px; }
+body.staff-ui .alert,
+body.staff-ui #offline { border-radius: 6px; box-shadow: none; font-size: 13px; }
+body.staff-ui .alert { border-color: #efc4c1; color: #991b1b; background: #fff1f0; }
+body.staff-ui #offline { border-color: #ecd59e; color: #713f12; background: #fff8e8; }
+body.staff-ui .badge-new,
+body.staff-ui .badge-cooking,
+body.staff-ui .badge-ready,
+body.staff-ui .badge-cancelled,
+body.staff-ui .badge-wait,
+body.staff-ui .badge-served {
+    margin-left: 8px;
+    padding: 3px 8px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    box-shadow: none;
+    font-size: 11px;
+}
+body.staff-ui .badge-new { color: #991b1b; background: #fee2e2; }
+body.staff-ui .badge-cooking { color: #92400e; background: #fef3c7; }
+body.staff-ui .badge-ready,
+body.staff-ui .badge-served { color: #166534; background: #dcfce7; }
+body.staff-ui .badge-cancelled { color: #475569; background: #e2e8f0; }
+body.staff-ui .badge-wait { color: #075985; background: #e0f2fe; }
+body.staff-ui .section-title { border-bottom: 1px solid var(--staff-line); color: var(--staff-text); background: transparent; }
+body.staff-ui .sec-ordered { color: var(--staff-amber); }
+body.staff-ui .sec-cooking { color: var(--staff-green); }
+body.staff-ui .sec-ready { color: var(--staff-blue); }
+body.staff-ui .sec-served { color: #166534; }
+body.staff-ui .sec-cancelled { color: var(--staff-red); }
+body.staff-ui .dish-card.ready { background: #f0f8fa; }
+body.staff-ui .dish-card.served { background: #f1f8f2; opacity: 0.82; }
+body.staff-ui .dish-card.cancelled { background: #f5f6f5; }
+body.staff-ui .dish-info { color: var(--staff-text); font-size: 14px; }
+body.staff-ui .dish-time { margin-left: 8px; color: var(--staff-muted); font-size: 12px; }
+body.staff-ui .status-group {
+    margin-top: 12px;
+    padding: 12px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+}
+body.staff-ui .status-group + .status-group { margin-top: 12px; }
+body.staff-ui .status-group-title {
+    margin: 0 0 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #d6dfd8;
+    color: inherit;
+}
+body.staff-ui .status-group-title small { color: inherit; opacity: 0.82; }
+body.staff-ui .status-group.status-ordered,
+body.staff-ui .status-group.status-cooking,
+body.staff-ui .status-group.status-ready,
+body.staff-ui .status-group.status-served,
+body.staff-ui .status-group.status-cancelled {
+    border-color: #d5e1d7;
+    color: #244b32;
+    background: #f5f8f5;
+}
+body.staff-ui .status-group .status-group-items { color: var(--staff-text); }
+body.staff-ui .status-history-group { padding: 10px 12px; }
+body.staff-ui .status-history-group[open] { padding-bottom: 12px; }
+body.staff-ui .empty-state { border: 1px dashed #cbd5ce; border-radius: 8px; color: var(--staff-muted); background: #fff; font-size: 14px; }
+body.staff-ui .empty-state small { color: var(--staff-muted); }
+
+body.staff-ui .cashier-container,
+body.staff-ui .summary-container,
+body.staff-ui .payment-wrapper {
+    max-width: 1500px;
+    margin: 0 auto;
+    border: 1px solid var(--staff-line);
+    border-radius: 8px;
+    color: var(--staff-text);
+    background: #fff;
+    box-shadow: 0 4px 16px rgba(24, 39, 28, 0.07);
+}
+body.staff-ui .cashier-container { margin-top: 26px; padding: 26px; }
+body.staff-ui .cashier-header { margin-bottom: 22px; padding-bottom: 16px; border-bottom: 1px solid var(--staff-line); color: var(--staff-text); text-align: left; }
+body.staff-ui .cashier-header h1 { font-size: 22px; }
+body.staff-ui .table-grid { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+body.staff-ui .table-card { min-height: 132px; padding: 20px; border: 1px solid var(--staff-line); border-radius: 8px; background: #fff; box-shadow: 0 2px 8px rgba(24, 39, 28, 0.06); }
+body.staff-ui .table-card:hover { transform: none; border-color: #a9bdae; background: #fbfdfb; box-shadow: 0 4px 12px rgba(24, 39, 28, 0.08); }
+body.staff-ui .table-number { color: var(--staff-text); font-size: 17px; }
+body.staff-ui .table-status { padding: 4px 9px; border: 1px solid transparent; border-radius: 999px; font-size: 11px; font-weight: 700; }
+body.staff-ui .table-card.available { border-color: #cbdccf; }
+body.staff-ui .available .table-status { color: #166534; background: #dcfce7; }
+body.staff-ui .table-card.occupied { border-color: #e8c4c1; }
+body.staff-ui .occupied .table-status { color: #991b1b; background: #fee2e2; }
+body.staff-ui .no-tables { color: var(--staff-muted); }
+body.staff-ui .header-bar,
+body.staff-ui .payment-header,
+body.staff-ui .payment-footer { border-color: var(--staff-line); background: #fff; }
+body.staff-ui .header-bar { padding: 14px 20px; }
+body.staff-ui .back-btn { color: #47564b; }
+body.staff-ui .back-btn:hover { color: #14532d; background: #f0f5f1; }
+body.staff-ui .page-title,
+body.staff-ui .payment-header h1 { color: var(--staff-text); }
+body.staff-ui .summary-content { background: #fff; }
+body.staff-ui .order-section { border-color: var(--staff-line); }
+body.staff-ui .section-title,
+body.staff-ui .split-title { color: var(--staff-text); }
+body.staff-ui .order-item { border-color: var(--staff-line); }
+body.staff-ui .food-name { color: var(--staff-text); }
+body.staff-ui .price-sub,
+body.staff-ui .meta-label,
+body.staff-ui .tag-sub,
+body.staff-ui .item-qty { color: var(--staff-muted); }
+body.staff-ui .tag-badge { color: #334238; background: #edf1ee; }
+body.staff-ui .tag-badge.active { color: #713f12; background: #fef3c7; }
+body.staff-ui .payment-section { background: #f6f8f6; }
+body.staff-ui .split-calculation-box { border-color: var(--staff-line); color: #334238; background: #fff; }
+body.staff-ui .calc-line span:last-child { color: var(--staff-muted); }
+body.staff-ui .bill-summary { border-color: var(--staff-line); }
+body.staff-ui .summary-row { color: var(--staff-muted); }
+body.staff-ui .summary-row.total-row { color: var(--staff-text); }
+body.staff-ui .checkout-btn:disabled { color: #647268; background: #e5e9e6; cursor: not-allowed; }
+body.staff-ui .payment-wrapper { overflow: hidden; min-height: calc(100vh - 52px); }
+body.staff-ui .payment-header h1 { font-size: 18px; }
+body.staff-ui .cards-grid { grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); align-items: start; background: #f6f8f6; }
+body.staff-ui .payment-card { border-color: var(--staff-line); border-radius: 8px; background: #fff; box-shadow: 0 2px 8px rgba(24, 39, 28, 0.06); }
+body.staff-ui .payment-card.paid { border-color: #b8d6bf; }
+body.staff-ui .payment-card.pending { border-color: #ead5a8; }
+body.staff-ui .person-name,
+body.staff-ui .amount-val { color: var(--staff-text); }
+body.staff-ui .amount-unit,
+body.staff-ui .payment-type { color: var(--staff-muted); }
+body.staff-ui .pp-tag { color: #fff; background: #075985; }
+body.staff-ui .qr-code-img { border-color: #cbd5ce; background: #fff; }
+body.staff-ui .status-btn { border-radius: 6px; }
+body.staff-ui .status-confirmed { color: #166534; }
+body.staff-ui .status-waiting { color: #92400e; }
+body.staff-ui .summary-status { color: var(--staff-muted); }
+body.staff-ui .payment-footer { align-items: stretch; }
+body.staff-ui .btn-done { min-height: 42px; }
+body.staff-ui .status-confirmed,
+body.staff-ui .status-waiting { line-height: 1.5; }
+body.staff-ui .qr-code-img { padding: 4px; }
+
+@media (max-width: 900px) {
+    body.staff-ui .sidebar {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        width: auto;
+        flex-direction: row;
+        overflow-x: auto;
+        margin: 0;
+        border-right: 0;
+        border-bottom: 1px solid var(--staff-line);
+        border-radius: 0;
+        padding: 8px 12px;
+    }
+    body.staff-ui .sidebar a { flex: 0 0 auto; justify-content: center; min-width: 120px; padding: 8px 12px; font-size: 12px; white-space: nowrap; }
+    body.staff-ui .kitchen-container { max-width: none; margin: 0; padding: 22px 20px 36px; }
+    body.staff-ui .summary-container,
+    body.staff-ui .payment-wrapper { margin: 0; border-radius: 0; }
+    body.staff-ui .summary-content { grid-template-columns: 1fr; }
+    body.staff-ui .order-section { border-right: 0; border-bottom: 1px solid var(--staff-line); }
+}
+
+@media (max-width: 680px) {
+    .staff-topbar { align-items: flex-start; flex-direction: column; gap: 8px; padding: 12px 16px; }
+    .staff-nav { width: 100%; overflow-x: auto; }
+    .staff-nav a { flex: 0 0 auto; white-space: nowrap; }
+    body.staff-ui .cashier-container { margin: 0; padding: 18px 14px; border-radius: 0; }
+    body.staff-ui .table-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+    body.staff-ui .table-card { min-height: 112px; padding: 14px 10px; }
+    body.staff-ui .table-link { align-items: flex-start; flex-direction: column; }
+}

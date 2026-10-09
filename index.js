@@ -339,10 +339,6 @@ app.get('/order-status', (req, res) => {
                 LEFT JOIN ORDER_ITEM_OWNERS oio ON oio.order_item_id = oi.order_item_id
                 LEFT JOIN SESSION_USERS su ON su.user_id = oio.user_id
                 WHERE o.session_id = ?
-                  AND (? IS NULL OR EXISTS (
-                      SELECT 1 FROM ORDER_ITEM_OWNERS own
-                      WHERE own.order_item_id = oi.order_item_id AND own.user_id = ?
-                  ))
                 GROUP BY oi.order_item_id
                 ORDER BY CASE LOWER(TRIM(oi.status))
                     WHEN 'pending' THEN 1
@@ -355,7 +351,7 @@ app.get('/order-status', (req, res) => {
                 END, oi.order_item_id DESC
             `;
 
-            db.all(sql, [sessionRow.session_id, currentUser ? currentUser.user_id : null, currentUser ? currentUser.user_id : null], (err, items) => {
+            db.all(sql, [sessionRow.session_id], (err, items) => {
                 if (err) {
                     console.error('Error fetching customer order status:', err.message);
                     return res.status(500).send('เกิดข้อผิดพลาดในการดึงสถานะออร์เดอร์');
@@ -399,14 +395,12 @@ app.get('/table-summary', (req, res) => {
             if (!user) return res.status(400).send('ไม่พบผู้ใช้ในโต๊ะนี้');
 
             const sql = `
-                SELECT oi.order_item_id, oi.qty, oi.note, oi.status, oi.cancel_reason,
-                       mi.name, mi.price, mi.image_url,
-                       GROUP_CONCAT(DISTINCT su.name) AS owner_names
+                SELECT oi.order_item_id, oi.qty, oi.status, mi.name, mi.price,
+                       GROUP_CONCAT(DISTINCT oio.user_id) AS owner_ids
                 FROM ORDER_ITEMS oi
                 JOIN ORDERS o ON o.order_id = oi.order_id
                 JOIN MENU_ITEMS mi ON mi.menu_item_id = oi.menu_item_id
                 LEFT JOIN ORDER_ITEM_OWNERS oio ON oio.order_item_id = oi.order_item_id
-                LEFT JOIN SESSION_USERS su ON su.user_id = oio.user_id
                 WHERE o.session_id = ?
                 GROUP BY oi.order_item_id
                 ORDER BY oi.order_item_id DESC
@@ -424,19 +418,18 @@ app.get('/table-summary', (req, res) => {
                      WHERE s.session_id = ?`,
                     [sessionId],
                     (tableErr, table) => {
+                        if (tableErr) {
+                            console.error('Error fetching table number for summary:', tableErr.message);
+                            return res.status(500).send('เกิดข้อผิดพลาดในการตรวจสอบโต๊ะ');
+                        }
+
                         const normalizedItems = (items || []).map((item) => {
-                            const ownerNames = String(item.owner_names || '')
-                                .split(',')
-                                .map((name) => String(name).trim())
-                                .filter(Boolean);
-                            const itemTotal = (Number(item.price) || 0) * (Number(item.qty) || 0);
-                            const shareCount = ownerNames.length || 1;
                             return {
                                 ...item,
-                                owner_names: ownerNames,
-                                itemTotal,
-                                splitPricePerPerson: itemTotal / shareCount,
-                                itemStatus: String(item.status || '').toLowerCase()
+                                owner_ids: String(item.owner_ids || '')
+                                    .split(',')
+                                    .map((ownerId) => String(ownerId).trim())
+                                    .filter(Boolean)
                             };
                         });
 
@@ -446,44 +439,42 @@ app.get('/table-summary', (req, res) => {
                         }, 0);
 
                         db.all('SELECT user_id, name FROM SESSION_USERS WHERE session_id = ? ORDER BY user_id', [sessionId], (usersErr, sessionUsers) => {
-                            const userNames = (sessionUsers || []).map((member) => member.name).filter(Boolean);
-                            const userTotals = {};
-                            userNames.forEach((name) => {
-                                userTotals[name] = { total: 0, calcText: [] };
-                            });
+                            if (usersErr) {
+                                console.error('Error fetching table summary members:', usersErr.message);
+                                return res.status(500).send('เกิดข้อผิดพลาดในการดึงรายชื่อสมาชิกโต๊ะ');
+                            }
 
-                            normalizedItems.forEach((item) => {
-                                const tags = Array.isArray(item.owner_names) ? item.owner_names : [];
-                                const shareCount = tags.length || Math.max(userNames.length, 1);
-                                const perPerson = (Number(item.price) || 0) * (Number(item.qty) || 0) / shareCount;
-
-                                if (tags.length > 0) {
-                                    tags.forEach((ownerName) => {
-                                        if (!userTotals[ownerName]) {
-                                            userTotals[ownerName] = { total: 0, calcText: [] };
-                                        }
-                                        userTotals[ownerName].total += perPerson;
-                                        userTotals[ownerName].calcText.push(`${item.name} ${item.qty}x ${item.price} = ${((Number(item.price) || 0) * (Number(item.qty) || 0)).toFixed(2)}`);
-                                    });
-                                    return;
-                                }
-
-                                userNames.forEach((name) => {
-                                    userTotals[name].total += perPerson;
-                                    userTotals[name].calcText.push(`${item.name} ${item.qty}x ${item.price} = ${((Number(item.price) || 0) * (Number(item.qty) || 0)).toFixed(2)}`);
+                            const payerDetails = new Map();
+                            (sessionUsers || []).forEach((member) => {
+                                payerDetails.set(String(member.user_id), {
+                                    name: member.name,
+                                    total: 0,
+                                    items: []
                                 });
                             });
 
-                            const splitDetails = Object.keys(userTotals).map((name) => {
-                                const detail = userTotals[name];
-                                return {
-                                    name,
-                                    calcString: detail.calcText.length > 0
-                                        ? detail.calcText.join(' + ') + ` = ${(detail.total || 0).toFixed(2)}.-`
-                                        : '0.00.-',
-                                    total: detail.total || 0
-                                };
+                            normalizedItems.forEach((item) => {
+                                if (String(item.status || '').toLowerCase() === 'cancelled') return;
+
+                                const payerIds = item.owner_ids.length
+                                    ? item.owner_ids.filter((ownerId) => payerDetails.has(ownerId))
+                                    : [...payerDetails.keys()];
+                                if (!payerIds.length) return;
+
+                                const itemTotal = (Number(item.price) || 0) * (Number(item.qty) || 0);
+                                const perPerson = itemTotal / payerIds.length;
+                                payerIds.forEach((payerId) => {
+                                    const payer = payerDetails.get(payerId);
+                                    payer.total += perPerson;
+                                    payer.items.push({
+                                        name: item.name,
+                                        qty: Number(item.qty) || 0,
+                                        share: perPerson
+                                    });
+                                });
                             });
+
+                            const splitDetails = [...payerDetails.values()];
 
                             res.render('table-summary', {
                                 sessionId,
@@ -525,91 +516,85 @@ app.get('/owner-summary', (req, res) => {
                     if (tableErr) return res.status(500).send('เกิดข้อผิดพลาดในการตรวจสอบโต๊ะ');
 
                     db.all(
-                        `SELECT su.user_id, su.name,
-                                COUNT(DISTINCT oi.order_item_id) AS item_count,
-                                COALESCE(SUM(CASE WHEN LOWER(COALESCE(oi.status, '')) != 'cancelled' THEN (mi.price * oi.qty) ELSE 0 END), 0) AS total_amount
-                         FROM SESSION_USERS su
-                         LEFT JOIN ORDER_ITEM_OWNERS oio ON oio.user_id = su.user_id
-                         LEFT JOIN ORDER_ITEMS oi ON oi.order_item_id = oio.order_item_id
-                         LEFT JOIN MENU_ITEMS mi ON mi.menu_item_id = oi.menu_item_id
-                         LEFT JOIN ORDERS o ON o.order_id = oi.order_id AND o.session_id = ?
-                         WHERE su.session_id = ?
-                         GROUP BY su.user_id, su.name
-                         ORDER BY su.user_id`,
-                        [sessionId, sessionId],
-                        (ownersErr, ownerRows) => {
-                            if (ownersErr) {
-                                console.error('Error fetching owner summary:', ownersErr.message);
-                                return res.status(500).send('เกิดข้อผิดพลาดในการดึงสรุปรายชื่อผู้รับผิดชอบ');
+                        `SELECT user_id, name
+                         FROM SESSION_USERS
+                         WHERE session_id = ?
+                         ORDER BY user_id`,
+                        [sessionId],
+                        (membersErr, sessionUsers) => {
+                            if (membersErr) {
+                                console.error('Error fetching session members:', membersErr.message);
+                                return res.status(500).send('เกิดข้อผิดพลาดในการดึงรายชื่อสมาชิกโต๊ะ');
                             }
 
-                            const owners = ownerRows.map((row) => ({
-                                ...row,
-                                total_amount: Number(row.total_amount || 0),
-                                item_count: Number(row.item_count || 0)
-                            }));
+                            db.all(
+                                `SELECT oi.order_item_id, oi.qty, oi.status, oi.note,
+                                        mi.name AS item_name, mi.price, mi.image_url,
+                                        su.user_id AS owner_id, su.name AS owner_name
+                                 FROM ORDER_ITEMS oi
+                                 JOIN ORDERS o ON o.order_id = oi.order_id
+                                 JOIN MENU_ITEMS mi ON mi.menu_item_id = oi.menu_item_id
+                                 LEFT JOIN ORDER_ITEM_OWNERS oio ON oio.order_item_id = oi.order_item_id
+                                 LEFT JOIN SESSION_USERS su ON su.user_id = oio.user_id AND su.session_id = o.session_id
+                                 WHERE o.session_id = ? AND LOWER(COALESCE(oi.status, '')) != 'cancelled'
+                                 ORDER BY oi.order_item_id DESC, oio.user_id`,
+                                [sessionId],
+                                (itemsErr, itemRows) => {
+                                    if (itemsErr) {
+                                        console.error('Error fetching owner summary items:', itemsErr.message);
+                                        return res.status(500).send('เกิดข้อผิดพลาดในการดึงรายการอาหาร');
+                                    }
 
-                            const ownerDetails = [];
-                            const pendingQueries = owners.map((owner) => new Promise((resolve) => {
-                                db.all(
-                                    `SELECT oi.order_item_id, oi.qty, oi.status,
-                                            mi.name AS item_name,
-                                            mi.price,
-                                            (mi.price * oi.qty) AS line_total
-                                     FROM ORDER_ITEMS oi
-                                     JOIN ORDER_ITEM_OWNERS oio ON oio.order_item_id = oi.order_item_id
-                                     JOIN MENU_ITEMS mi ON mi.menu_item_id = oi.menu_item_id
-                                     JOIN ORDERS o ON o.order_id = oi.order_id
-                                     WHERE o.session_id = ? AND oio.user_id = ? AND LOWER(COALESCE(oi.status, '')) != 'cancelled'
-                                     ORDER BY oi.order_item_id DESC`,
-                                    [sessionId, owner.user_id],
-                                    (itemsErr, itemRows) => {
-                                        if (itemsErr) {
-                                            console.error('Error fetching owner item list:', itemsErr.message);
-                                            resolve({ user_id: owner.user_id, items: [] });
-                                            return;
+                                    const itemsById = new Map();
+                                    (itemRows || []).forEach((row) => {
+                                        let item = itemsById.get(row.order_item_id);
+                                        if (!item) {
+                                            item = {
+                                                order_item_id: row.order_item_id,
+                                                qty: Number(row.qty || 0),
+                                                status: row.status,
+                                                note: row.note,
+                                                item_name: row.item_name,
+                                                price: Number(row.price || 0),
+                                                image_url: row.image_url,
+                                                owner_ids: [],
+                                                owner_names: []
+                                            };
+                                            itemsById.set(row.order_item_id, item);
                                         }
 
-                                        resolve({
-                                            user_id: owner.user_id,
-                                            items: (itemRows || []).map((item) => ({
-                                                ...item,
-                                                line_total: Number(item.line_total || 0)
-                                            }))
-                                        });
-                                    }
-                                );
-                            }));
+                                        if (row.owner_id) {
+                                            item.owner_ids.push(String(row.owner_id));
+                                            if (row.owner_name) item.owner_names.push(row.owner_name);
+                                        }
+                                    });
 
-                            Promise.all(pendingQueries).then((detailRows) => {
-                                detailRows.forEach((detail) => {
-                                    const owner = owners.find((item) => item.user_id === detail.user_id);
-                                    if (owner) {
-                                        ownerDetails.push({
-                                            user_id: owner.user_id,
-                                            name: owner.name,
-                                            total_amount: owner.total_amount,
-                                            item_count: owner.item_count,
-                                            items: detail.items
-                                        });
-                                    }
-                                });
+                                    const items = [...itemsById.values()].map((item) => ({
+                                        ...item,
+                                        line_total: item.price * item.qty,
+                                        owner_ids: item.owner_ids.length
+                                            ? item.owner_ids
+                                            : sessionUsers.map((member) => String(member.user_id)),
+                                        owner_names: item.owner_names.length
+                                            ? item.owner_names
+                                            : sessionUsers.map((member) => member.name)
+                                    }));
+                                    const currentUserId = String(user.user_id);
+                                    const userTotal = items.reduce((total, item) => {
+                                        if (!item.owner_ids.includes(currentUserId)) return total;
+                                        return total + item.line_total / item.owner_ids.length;
+                                    }, 0);
 
-                                res.render('owner-summary', {
-                                    sessionId,
-                                    user,
-                                    tableNo: table && table.table_number ? table.table_number : sessionId,
-                                    owners: detailRows.length ? ownerDetails : owners.map((owner) => ({
-                                        user_id: owner.user_id,
-                                        name: owner.name,
-                                        total_amount: owner.total_amount,
-                                        item_count: owner.item_count,
-                                        items: []
-                                    }))
-                                });
-                            }).catch(() => {
-                                res.status(500).send('เกิดข้อผิดพลาดในการจัดรูปแบบสรุปผู้รับผิดชอบ');
-                            });
+                                    res.render('owner-summary', {
+                                        sessionId,
+                                        user,
+                                        tableNo: table && table.table_number ? table.table_number : sessionId,
+                                        sessionUsers,
+                                        items,
+                                        userTotal
+                                    });
+                                }
+                            );
                         }
                     );
                 }
@@ -632,11 +617,11 @@ app.post('/api/order-items/:id/owners', (req, res) => {
         SELECT oi.order_item_id, oi.status
         FROM ORDER_ITEMS oi
         JOIN ORDERS o ON o.order_id = oi.order_id
-        JOIN ORDER_ITEM_OWNERS current_owner ON current_owner.order_item_id = oi.order_item_id
-        WHERE oi.order_item_id = ? AND o.session_id = ? AND current_owner.user_id = ?
+        JOIN SESSION_USERS editor ON editor.session_id = o.session_id
+        WHERE oi.order_item_id = ? AND o.session_id = ? AND editor.user_id = ?
     `, [orderItemId, sessionId, userId], (findErr, item) => {
         if (findErr) return res.status(500).json({ success: false, message: 'ตรวจสอบรายการไม่สำเร็จ' });
-        if (!item) return res.status(404).json({ success: false, message: 'ไม่พบรายการหรือคุณไม่มีสิทธิ์แก้ไขผู้รับผิดชอบ' });
+        if (!item) return res.status(404).json({ success: false, message: 'ไม่พบรายการหรือคุณไม่ได้เป็นสมาชิกโต๊ะนี้' });
         if (['served', 'cancelled'].includes(String(item.status).toLowerCase())) {
             return res.status(400).json({ success: false, message: 'รายการที่เสิร์ฟหรือยกเลิกแล้วแก้ผู้รับผิดชอบไม่ได้' });
         }
@@ -1527,41 +1512,153 @@ app.post('/cashier/table/:table_id/toggle-user-paid', (req, res) => {
     });
 });
 
-// ปุ่มเสร็จสิ้น (ปิดโต๊ะ + เคลียร์ Active Session ทั้งหมด)
+// บันทึกยอดชำระเงินและปิด session ของโต๊ะ
 app.post('/cashier/table/:table_id/finish-payment', (req, res) => {
     const tableId = req.params.table_id;
-
-    const updateSessionsSql = `
-        UPDATE SESSIONS 
-        SET status = 'completed' 
-        WHERE LOWER(TRIM(status)) = 'active'
-          AND (
-            CAST(table_id AS TEXT) = CAST(? AS TEXT)
-            OR table_id IN (
-                SELECT t2.table_id 
-                FROM TABLES t1 
-                JOIN TABLES t2 ON t1.table_number = t2.table_number 
-                WHERE CAST(t1.table_id AS TEXT) = CAST(? AS TEXT)
-            )
-          )
-    `;
-
-    db.run(updateSessionsSql, [tableId, tableId], (err) => {
-        if (err) console.error('[Finish Payment Error] SESSIONS:', err);
-
-        const updateTablesSql = `
-            UPDATE TABLES 
-            SET status = 'AVAILABLE' 
-            WHERE CAST(table_id AS TEXT) = CAST(? AS TEXT)
-               OR table_number IN (
-                   SELECT table_number FROM TABLES WHERE CAST(table_id AS TEXT) = CAST(? AS TEXT)
-               )
-        `;
-
-        db.run(updateTablesSql, [tableId, tableId], (err) => {
-            if (err) console.error('[Finish Payment Error] TABLES:', err);
-            res.redirect('/cashier');
+    const paymentMode = String(req.body.paymentMode || '') === 'combined' ? 'combined' : 'split';
+    const failTransaction = (message, err) => {
+        console.error(`[Finish Payment Error] ${message}:`, err.message);
+        db.run('ROLLBACK', (rollbackErr) => {
+            if (rollbackErr) console.error('[Finish Payment Error] ROLLBACK:', rollbackErr.message);
+            res.status(500).send('เกิดข้อผิดพลาดในการบันทึกการชำระเงิน');
         });
+    };
+
+    db.run('BEGIN IMMEDIATE TRANSACTION', (beginErr) => {
+        if (beginErr) {
+            console.error('[Finish Payment Error] BEGIN:', beginErr.message);
+            return res.status(500).send('ไม่สามารถเริ่มบันทึกการชำระเงินได้');
+        }
+
+        db.get(
+            `SELECT s.session_id, s.table_id
+             FROM SESSIONS s
+             JOIN TABLES t ON t.table_id = s.table_id
+             WHERE CAST(s.table_id AS TEXT) = CAST(? AS TEXT)
+               AND LOWER(TRIM(s.status)) = 'active'
+             ORDER BY s.session_id DESC
+             LIMIT 1`,
+            [tableId],
+            (sessionErr, sessionRow) => {
+                if (sessionErr) return failTransaction('SESSION LOOKUP', sessionErr);
+                if (!sessionRow) {
+                    return db.run('ROLLBACK', (rollbackErr) => {
+                        if (rollbackErr) console.error('[Finish Payment Error] ROLLBACK:', rollbackErr.message);
+                        res.redirect('/cashier');
+                    });
+                }
+
+                db.all(
+                    'SELECT user_id, is_paid FROM SESSION_USERS WHERE session_id = ?',
+                    [sessionRow.session_id],
+                    (usersErr, users) => {
+                        if (usersErr) return failTransaction('USER LOOKUP', usersErr);
+
+                        db.all(
+                            `SELECT oi.order_item_id, oi.qty, mi.price,
+                                    GROUP_CONCAT(DISTINCT su.user_id) AS owner_ids
+                             FROM ORDER_ITEMS oi
+                             JOIN ORDERS o ON o.order_id = oi.order_id
+                             JOIN MENU_ITEMS mi ON mi.menu_item_id = oi.menu_item_id
+                             LEFT JOIN ORDER_ITEM_OWNERS oio ON oio.order_item_id = oi.order_item_id
+                             LEFT JOIN SESSION_USERS su ON su.user_id = oio.user_id
+                             WHERE o.session_id = ?
+                             GROUP BY oi.order_item_id`,
+                            [sessionRow.session_id],
+                            (itemsErr, items) => {
+                                if (itemsErr) return failTransaction('ORDER LOOKUP', itemsErr);
+
+                                const paymentRows = [];
+                                if (paymentMode === 'combined' || users.length === 0) {
+                                    const amount = (items || []).reduce((total, item) => (
+                                        total + (Number(item.price) || 0) * (Number(item.qty) || 0)
+                                    ), 0);
+                                    if (amount > 0) {
+                                        paymentRows.push({
+                                            userId: null,
+                                            amount: Number(amount.toFixed(2)),
+                                            status: 'paid'
+                                        });
+                                    }
+                                } else {
+                                    const userTotals = new Map(users.map((user) => [
+                                        String(user.user_id),
+                                        { amount: 0, isPaid: Number(user.is_paid) === 1 }
+                                    ]));
+
+                                    (items || []).forEach((item) => {
+                                        const itemTotal = (Number(item.price) || 0) * (Number(item.qty) || 0);
+                                        const owners = [...new Set(String(item.owner_ids || '').split(',').filter(Boolean))];
+                                        const splitOwners = owners.length > 0
+                                            ? owners
+                                            : [...userTotals.keys()];
+                                        const perOwnerAmount = itemTotal / splitOwners.length;
+
+                                        splitOwners.forEach((userId) => {
+                                            const userTotal = userTotals.get(userId);
+                                            if (userTotal) userTotal.amount += perOwnerAmount;
+                                        });
+                                    });
+
+                                    userTotals.forEach((userTotal, userId) => {
+                                        if (userTotal.amount > 0) {
+                                            paymentRows.push({
+                                                userId,
+                                                amount: Number(userTotal.amount.toFixed(2)),
+                                                status: userTotal.isPaid ? 'paid' : 'pending'
+                                            });
+                                        }
+                                    });
+                                }
+
+                                const insertPayment = (index) => {
+                                    if (index >= paymentRows.length) return closeTable();
+
+                                    const payment = paymentRows[index];
+                                    db.run(
+                                        `INSERT INTO PAYMENTS (session_id, user_id, amount, method, status)
+                                         VALUES (?, ?, ?, 'PromptPay', ?)`,
+                                        [sessionRow.session_id, payment.userId, payment.amount, payment.status],
+                                        (insertErr) => {
+                                            if (insertErr) return failTransaction('PAYMENT INSERT', insertErr);
+                                            insertPayment(index + 1);
+                                        }
+                                    );
+                                };
+
+                                const closeTable = () => {
+                                    db.run(
+                                        "UPDATE SESSIONS SET status = 'completed' WHERE session_id = ? AND LOWER(TRIM(status)) = 'active'",
+                                        [sessionRow.session_id],
+                                        function (sessionUpdateErr) {
+                                            if (sessionUpdateErr) return failTransaction('SESSION UPDATE', sessionUpdateErr);
+                                            if (this.changes === 0) {
+                                                return failTransaction('SESSION UPDATE', new Error('Active session changed before payment finished.'));
+                                            }
+
+                                            db.run(
+                                                "UPDATE TABLES SET status = 'AVAILABLE' WHERE table_id = ?",
+                                                [sessionRow.table_id],
+                                                (tableUpdateErr) => {
+                                                    if (tableUpdateErr) return failTransaction('TABLE UPDATE', tableUpdateErr);
+
+                                                    db.run('COMMIT', (commitErr) => {
+                                                        if (commitErr) return failTransaction('COMMIT', commitErr);
+                                                        res.redirect('/cashier');
+                                                    });
+                                                }
+                                            );
+                                        }
+                                    );
+                                };
+
+                                insertPayment(0);
+                            }
+                        );
+                    }
+                );
+            }
+        );
     });
 });
 
@@ -1569,8 +1666,8 @@ app.post('/cashier/table/:table_id/finish-payment', (req, res) => {
 // 8. ส่วนงานครัว (Kitchen)
 // -----------------------------------------------------------------------------
 const ST = { PENDING: 'pending', ORDERED: 'ordered', COOKING: 'cooking', READY: 'ready', SERVED: 'served', CANCELLED: 'cancelled' };
-// ครัวเปลี่ยนสถานะรายจานได้แค่ 2 แบบ: key = สถานะปลายทาง, value = สถานะที่ต้องเป็นอยู่ก่อน
-const KITCHEN_STEP = { ready: 'cooking', cooking: 'ready' };
+// key = สถานะปลายทาง, value = สถานะที่ต้องเป็นอยู่ก่อน
+const KITCHEN_STEP = { ordered: 'cooking', ready: 'cooking', cooking: 'ready' };
 // พนักงานเสิร์ฟกดได้แบบเดียว: พร้อมเสิร์ฟ -> เสิร์ฟแล้ว (ใช้ที่หน้ารายละเอียดคำสั่งซื้อ)
 const SERVE_STEP = { served: 'ready' };
 // ข้อความแจ้งเตือนที่อนุญาตให้แสดงผ่าน query msg (กันการพิมพ์ค่าดิบจากผู้ใช้)
@@ -1583,6 +1680,8 @@ function makeItem(r, now) {
     const qty = Number(r.qty) || 0;
     return {
         order_item_id: r.order_item_id,
+        table_id: r.table_id,
+        table_number: r.table_number,
         qty: r.qty,
         note: r.note,
         status: r.status,
@@ -1610,7 +1709,8 @@ app.get('/kitchen', (req, res) => {
         JOIN TABLES t     ON CAST(t.table_id AS TEXT) = CAST(s.table_id AS TEXT)
         JOIN MENU_ITEMS mi ON mi.menu_item_id = oi.menu_item_id
         WHERE oi.status IN ('ordered', 'cooking') AND LOWER(TRIM(s.status)) = 'active'
-        ORDER BY sent_at DESC, oi.order_item_id DESC
+        ORDER BY CASE oi.status WHEN 'ordered' THEN 0 ELSE 1 END,
+                 sent_at DESC, oi.order_item_id DESC
     `;
 
     db.all(sql, [], (err, rows) => {
@@ -1675,13 +1775,13 @@ app.post('/kitchen/accept', (req, res) => {
             if (this.changes === 0) {
                 return res.redirect('/kitchen?msg=taken');
             }
-            res.redirect('/kitchen');
+            res.redirect('/kitchen/orders');
         });
     });
 });
 
 // 8.3 หน้าออเดอร์ที่ต้องทำ (แยกจานต่อจาน เฉพาะกำลังปรุง จานใหม่สุดก่อน ปุ่มเดียวคือปรุงเสร็จ)
-app.get('/kitchen/ordered', (req, res) => {
+app.get(['/kitchen/ordered', '/kitchen/orders'], (req, res) => {
     const rawMsg = String(req.query.msg || '');
     const msg = KITCHEN_MSG.includes(rawMsg) ? rawMsg : '';
 
@@ -1712,33 +1812,71 @@ app.get('/kitchen/ordered', (req, res) => {
             dishes.push(item);
         });
 
-        res.render('kitchen', { bills: [], dishes: dishes, tables: [], msg: msg, mode: 'ordered', page: 'ordered', title: 'ออเดอร์ที่ต้องทำ' });
+        res.render('kitchen', { bills: [], dishes: dishes, tables: [], msg: msg, mode: 'ordered', page: 'orders', title: 'ออเดอร์ที่ต้องทำ' });
     });
 });
 
-// 8.4 หน้าอัพเดทสถานะ (รายชื่อโต๊ะที่มีงานค้าง กดเข้าไปได้)
+// 8.4 หน้าอัพเดทสถานะ (แสดงรายการอาหารทั้งหมด เรียงตามสถานะ)
 app.get('/kitchen/status', (req, res) => {
     const sql = `
-        SELECT t.table_id, t.table_number,
-               COUNT(*) AS total,
-               SUM(CASE WHEN oi.status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled
+        SELECT t.table_id, t.table_number, oi.order_item_id, oi.qty, oi.note, oi.status, oi.cancel_reason,
+               COALESCE(oi.sent_at, o.created_at) AS sent_at, mi.name, mi.price
         FROM ORDER_ITEMS oi
         JOIN ORDERS o     ON o.order_id = oi.order_id
         JOIN SESSIONS s   ON s.session_id = o.session_id
         JOIN TABLES t     ON CAST(t.table_id AS TEXT) = CAST(s.table_id AS TEXT)
-        WHERE oi.status IN ('ordered', 'cooking', 'ready', 'cancelled', 'served') AND LOWER(TRIM(s.status)) = 'active'
-        GROUP BY t.table_id, t.table_number
-        ORDER BY CAST(t.table_number AS INTEGER) ASC
+        JOIN MENU_ITEMS mi ON mi.menu_item_id = oi.menu_item_id
+        WHERE oi.status IN ('ordered', 'cooking', 'ready', 'cancelled', 'served')
+          AND LOWER(TRIM(s.status)) = 'active'
+        ORDER BY CASE oi.status
+            WHEN 'ordered' THEN 1
+            WHEN 'cooking' THEN 2
+            WHEN 'ready' THEN 3
+            WHEN 'served' THEN 4
+            WHEN 'cancelled' THEN 5
+            ELSE 6
+        END, sent_at DESC, oi.order_item_id DESC
     `;
 
     db.all(sql, [], (err, rows) => {
         if (err) {
-            console.error('Error fetching status tables:', err.message);
-            return res.status(500).send('เกิดข้อผิดพลาดในการดึงข้อมูลโต๊ะ');
+            console.error('Error fetching kitchen status items:', err.message);
+            return res.status(500).send('เกิดข้อผิดพลาดในการดึงรายการอาหาร');
         }
 
-        res.render('kitchen', { bills: [], dishes: [], tables: rows || [], msg: '', mode: 'tables', page: 'status', title: 'อัพเดทสถานะอาหาร' });
+        const now = Date.now();
+        const dishes = (rows || []).map((row) => makeItem(row, now));
+        const tableMap = new Map();
+        dishes.forEach((item) => {
+            const key = String(item.table_id);
+            if (!tableMap.has(key)) {
+                tableMap.set(key, {
+                    table_id: item.table_id,
+                    table_number: item.table_number,
+                    items: []
+                });
+            }
+            tableMap.get(key).items.push(item);
+        });
+        const tableGroups = Array.from(tableMap.values())
+            .sort((a, b) => String(a.table_number).localeCompare(String(b.table_number), undefined, { numeric: true }));
+        const rawMsg = String(req.query.msg || '');
+        const msg = KITCHEN_MSG.includes(rawMsg) ? rawMsg : '';
+        res.render('kitchen', {
+            bills: [],
+            dishes,
+            tableGroups,
+            tables: [],
+            msg,
+            mode: 'status',
+            page: 'status',
+            title: 'อัพเดทสถานะอาหาร'
+        });
     });
+});
+
+app.get('/kitchen/table', (req, res) => {
+    res.redirect('/kitchen/orders');
 });
 
 // 8.5 หน้ารายละเอียดรายโต๊ะ (แยก 4 กอง: รอรับ กำลังปรุง พร้อมเสิร์ฟ ยกเลิกแล้ว)
@@ -1749,8 +1887,10 @@ app.get('/kitchen/table/:table_id', (req, res) => {
     // จำหน้ามาเพื่อไฮไลต์แท็บและปุ่มกลับให้ถูก (kitchen / status / orders)
     const rawFrom = String(req.query.from || '');
     const fromPage = ['kitchen', 'status', 'orders'].includes(rawFrom) ? rawFrom : 'status';
-    const backUrl = fromPage === 'kitchen' ? '/kitchen' : (fromPage === 'orders' ? '/orders' : '/kitchen/status');
-    const backText = fromPage === 'kitchen' ? 'กลับหน้าครัว' : (fromPage === 'orders' ? 'กลับหน้ารายละเอียด' : 'กลับหน้าอัพเดท');
+    const backUrl = fromPage === 'kitchen' ? '/kitchen'
+        : (fromPage === 'orders' ? '/kitchen/orders' : '/kitchen/status');
+    const backText = fromPage === 'kitchen' ? 'กลับหน้าครัว'
+        : (fromPage === 'orders' ? 'กลับหน้าออร์เดอร์ที่ต้องทำ' : 'กลับหน้าอัพเดท');
 
     db.get('SELECT table_id, table_number FROM TABLES WHERE CAST(table_id AS TEXT) = CAST(? AS TEXT)', [tableId], (err, table) => {
         if (err) {
@@ -1794,7 +1934,7 @@ app.get('/kitchen/table/:table_id', (req, res) => {
                 else cancelled.push(item);
             });
 
-            res.render('kitchen-detail', { table: tableInfo, ordered: ordered, cooking: cooking, ready: ready, served: served, cancelled: cancelled, msg: msg, page: (fromPage === 'orders' ? '' : fromPage), backUrl: backUrl, backText: backText });
+            res.render('kitchen-detail', { table: tableInfo, ordered: ordered, cooking: cooking, ready: ready, served: served, cancelled: cancelled, msg: msg, page: fromPage, backUrl: backUrl, backText: backText });
         });
     });
 });
@@ -1805,11 +1945,16 @@ app.post('/kitchen/item/:id/status', (req, res) => {
     const to = String(req.body.to || '');
     const tableId = String(req.body.table_id || '');
     const backTo = /^[0-9]+$/.test(tableId) ? '/kitchen/table/' + tableId : '/kitchen';
+    const wantsJson = (req.get('accept') || '').includes('application/json');
     // หน้าที่กดปุ่มมา (ให้เด้งกลับหน้านั้น): รายละเอียดเสิร์ฟ หรือ ออเดอร์ที่ต้องทำ
-    const BACK_OK = ['/orders', '/kitchen/ordered'];
+    const BACK_OK = ['/orders', '/kitchen/ordered', '/kitchen/orders', '/kitchen/status'];
     const rawBack = String(req.body.back || '');
     const homeBack = BACK_OK.includes(rawBack) ? rawBack : null;
     const backWithMsg = (key) => (homeBack || backTo) + ((homeBack || backTo).includes('?') ? '&' : '?') + 'msg=' + key;
+    const respondError = (key, statusCode) => {
+        if (wantsJson) return res.status(statusCode).json({ error: key });
+        return res.redirect(backWithMsg(key));
+    };
 
     // ยกเลิกต้องพิมพ์เหตุผลมาด้วย (เสิร์ฟแล้วห้ามยกเลิก)
     const isCancel = (to === ST.CANCELLED);
@@ -1818,18 +1963,19 @@ app.post('/kitchen/item/:id/status', (req, res) => {
     if (Object.prototype.hasOwnProperty.call(KITCHEN_STEP, to)) stepMap = KITCHEN_STEP;
     else if (Object.prototype.hasOwnProperty.call(SERVE_STEP, to)) stepMap = SERVE_STEP;
     if (!Number.isInteger(itemId) || itemId <= 0) {
-        return res.redirect(backWithMsg('invalid'));
+        return respondError('invalid', 400);
     }
     if (isCancel && reason === '') {
-        return res.redirect(backWithMsg('invalid'));
+        return respondError('invalid', 400);
     }
     if (!isCancel && !stepMap) {
-        return res.redirect(backWithMsg('invalid'));
+        return respondError('invalid', 400);
     }
 
     db.get("SELECT employee_id FROM EMPLOYEES WHERE role = 'kitchen' LIMIT 1", [], (err, emp) => {
         if (err || !emp) {
             console.error('Error finding kitchen employee:', err ? err.message : 'not found');
+            if (wantsJson) return res.status(500).json({ error: 'server' });
             return res.status(500).send('เกิดข้อผิดพลาดในการอัปเดตสถานะอาหาร');
         }
 
@@ -1837,16 +1983,18 @@ app.post('/kitchen/item/:id/status', (req, res) => {
         const afterUpdate = function (err) {
             if (err) {
                 console.error('Error updating kitchen item status:', err.message);
+                if (wantsJson) return res.status(500).json({ error: 'server' });
                 return res.status(500).send('เกิดข้อผิดพลาดในการอัปเดตสถานะอาหาร');
             }
             if (this.changes === 0) {
-                return res.redirect(backWithMsg('changed'));
+                return respondError('changed', 409);
             }
+            if (wantsJson) return res.json({ ok: true, orderItemId: itemId, status: to });
             res.redirect(homeBack || backTo);
         };
 
         if (isCancel) {
-            db.run("UPDATE ORDER_ITEMS SET status = 'cancelled', cancel_reason = ?, updated_by_employee_id = ? WHERE order_item_id = ? AND status IN ('ordered', 'cooking', 'ready')",
+            db.run("UPDATE ORDER_ITEMS SET status = 'cancelled', cancel_reason = ?, updated_by_employee_id = ? WHERE order_item_id = ? AND status IN ('ordered', 'cooking')",
                 [reason, emp.employee_id, itemId], afterUpdate);
         } else {
             const from = stepMap[to];

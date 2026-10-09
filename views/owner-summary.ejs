@@ -9,61 +9,178 @@
     <link rel="stylesheet" href="/css/customer-summary-ui.css">
 </head>
 <body>
-    <main class="owner-summary-page customer-summary-page">
+    <main class="owner-summary-page customer-summary-page"
+        data-session-id="<%= sessionId %>"
+        data-user-id="<%= user.user_id %>">
         <header class="summary-page-header">
-            <a class="summary-back-link" href="/menu?session_id=<%= encodeURIComponent(sessionId) %>&user_id=<%= encodeURIComponent(user.user_id) %>">‹ เมนู</a>
+            <a class="summary-back-link" href="/menu?session_id=<%= encodeURIComponent(sessionId) %>&user_id=<%= encodeURIComponent(user.user_id) %>" aria-label="กลับไปหน้าเมนู">‹ เมนู</a>
             <div class="summary-page-brand">
-                <h1>สรุปคนที่สั่ง</h1>
+                <h1>สรุปผู้หารค่าอาหาร</h1>
             </div>
             <span class="customer-pill">โต๊ะ <%= tableNo %></span>
         </header>
 
-        <section class="summary-overview" aria-label="สรุปยอดรวมเจ้าของรายการ">
+        <section class="summary-overview" aria-label="สรุปยอดรายการอาหาร">
             <div class="summary-stat">
-                <span class="overview-label">จำนวนคน</span>
-                <strong><%= owners.length %> <small>คน</small></strong>
+                <span class="overview-label">รายการอาหาร</span>
+                <strong><%= items.length %> <small>รายการ</small></strong>
             </div>
             <div class="summary-stat summary-stat-highlight">
-                <span class="overview-label">ยอดรวม</span>
-                <strong>฿<%= owners.reduce((sum, owner) => sum + Number(owner.total_amount || 0), 0).toLocaleString() %></strong>
+                <span class="overview-label">ยอดส่วนของ <%= user.name %></span>
+                <strong>฿<%= Number(userTotal || 0).toLocaleString(undefined, { maximumFractionDigits: 2 }) %></strong>
             </div>
         </section>
 
-        <% if (owners.length > 0) { %>
-            <section class="owner-list" aria-label="รายชื่อผู้รับผิดชอบ">
-                <% owners.forEach((owner) => { %>
-                    <article class="owner-card">
-                        <div class="owner-head">
-                            <div class="owner-avatar"><%= String(owner.name || 'N').charAt(0) %></div>
-                            <div class="owner-meta">
-                                <h2><%= owner.name %></h2>
-                                <p><%= owner.item_count %> รายการ · ยอดรวม <strong>฿<%= Number(owner.total_amount || 0).toLocaleString(undefined, { maximumFractionDigits: 0 }) %></strong></p>
-                            </div>
+        <% if (items.length > 0) { %>
+            <section class="food-list" aria-label="รายการอาหารและผู้หาร">
+                <% items.forEach((item) => {
+                    const isLocked = ['served', 'cancelled'].includes(String(item.status || '').toLowerCase());
+                %>
+                    <article class="food-card">
+                        <div class="food-image-wrap">
+                            <% if (item.image_url) { %>
+                                <img class="food-image" src="<%= item.image_url %>" alt="<%= item.item_name %>" loading="lazy" onerror="this.hidden=true; this.nextElementSibling.hidden=false">
+                                <span class="food-image-placeholder" hidden aria-hidden="true">อาหาร</span>
+                            <% } else { %>
+                                <span class="food-image-placeholder" aria-hidden="true">อาหาร</span>
+                            <% } %>
                         </div>
 
-                        <% if (owner.items && owner.items.length > 0) { %>
-                            <ul class="owner-item-list">
-                                <% owner.items.forEach((item) => { %>
-                                    <li>
-                                        <span><%= item.item_name %></span>
-                                        <strong>฿<%= Number(item.line_total || 0).toLocaleString(undefined, { maximumFractionDigits: 0 }) %></strong>
-                                    </li>
-                                <% }); %>
-                            </ul>
-                        <% } else { %>
-                            <p class="owner-empty">ยังไม่มีรายการที่รับผิดชอบ</p>
-                        <% } %>
+                        <div class="food-content">
+                            <div class="food-heading">
+                                <div>
+                                    <p class="food-order-number">รายการ #<%= item.order_item_id %></p>
+                                    <h2><%= item.item_name %></h2>
+                                </div>
+                                <strong class="food-total">฿<%= Number(item.line_total || 0).toLocaleString(undefined, { maximumFractionDigits: 0 }) %></strong>
+                            </div>
+
+                            <p class="food-quantity">จำนวน <%= item.qty %> จาน</p>
+                            <% if (item.note) { %><p class="food-note">หมายเหตุ: <%= item.note %></p><% } %>
+
+                            <div class="food-owners">
+                                <div class="food-owners-copy">
+                                    <span class="owners-label">ผู้หารค่าอาหาร</span>
+                                    <p><%= item.owner_names.length ? item.owner_names.join(' · ') : 'ยังไม่มีสมาชิกในโต๊ะ' %></p>
+                                </div>
+                                <button
+                                    class="edit-owners-button"
+                                    type="button"
+                                    data-order-item-id="<%= item.order_item_id %>"
+                                    data-owner-ids="<%= JSON.stringify(item.owner_ids) %>"
+                                    <%= isLocked || !sessionUsers.length ? 'disabled' : '' %>>
+                                    <%= isLocked ? 'แก้ไม่ได้' : 'แก้ไข' %>
+                                </button>
+                            </div>
+                            <% if (isLocked) { %><p class="food-locked-note">รายการนี้เสิร์ฟแล้ว จึงแก้ผู้หารไม่ได้</p><% } %>
+                        </div>
                     </article>
                 <% }); %>
             </section>
         <% } else { %>
             <section class="summary-empty">
                 <span aria-hidden="true">—</span>
-                <h2>ยังไม่มีคนรับผิดชอบ</h2>
-                <p>เมื่อมีเมนูที่ถูกเลือกให้คนในโต๊ะ รายชื่อและยอดรวมจะแสดงที่นี่</p>
+                <h2>ยังไม่มีรายการอาหาร</h2>
+                <p>อาหารที่สั่งจากเมนูจะแสดงที่นี่ พร้อมรายชื่อสมาชิกที่ร่วมหาร</p>
             </section>
         <% } %>
-
     </main>
+
+    <div class="owner-editor-backdrop" id="ownerEditor" aria-hidden="true">
+        <section class="owner-editor" role="dialog" aria-modal="true" aria-labelledby="ownerEditorTitle" tabindex="-1">
+            <header class="owner-editor-header">
+                <div>
+                    <h2 id="ownerEditorTitle">แก้ไขผู้หารค่าอาหาร</h2>
+                    <p>เลือกสมาชิกที่ร่วมรับผิดชอบรายการนี้</p>
+                </div>
+                <button class="owner-editor-close" type="button" aria-label="ปิดหน้าต่างแก้ไข">×</button>
+            </header>
+            <div class="owner-chip-list">
+                <% sessionUsers.forEach((member) => { %>
+                    <label class="owner-chip">
+                        <input type="checkbox" name="owner_ids" value="<%= member.user_id %>">
+                        <span class="owner-chip-label"><%= member.name %><% if (String(member.user_id) === String(user.user_id)) { %> (ฉัน)<% } %></span>
+                    </label>
+                <% }); %>
+            </div>
+            <p class="owner-editor-message" id="ownerEditorMessage" role="status" aria-live="polite"></p>
+            <button class="owner-editor-save" id="saveOwnersButton" type="button">บันทึกผู้หาร</button>
+        </section>
+    </div>
+
+    <script>
+        const summaryPage = document.querySelector('.owner-summary-page');
+        const ownerEditor = document.getElementById('ownerEditor');
+        const ownerEditorDialog = ownerEditor.querySelector('.owner-editor');
+        const ownerEditorMessage = document.getElementById('ownerEditorMessage');
+        const saveOwnersButton = document.getElementById('saveOwnersButton');
+        let editingOrderItemId = null;
+        let lastEditButton = null;
+
+        function closeOwnerEditor() {
+            ownerEditor.classList.remove('active');
+            ownerEditor.setAttribute('aria-hidden', 'true');
+            ownerEditorMessage.textContent = '';
+            if (lastEditButton) lastEditButton.focus();
+        }
+
+        function openOwnerEditor(button) {
+            lastEditButton = button;
+            editingOrderItemId = button.dataset.orderItemId;
+            const selectedOwnerIds = JSON.parse(button.dataset.ownerIds);
+
+            document.querySelectorAll('input[name="owner_ids"]').forEach((input) => {
+                input.checked = selectedOwnerIds.map(String).includes(input.value);
+            });
+
+            ownerEditorMessage.textContent = '';
+            ownerEditor.classList.add('active');
+            ownerEditor.setAttribute('aria-hidden', 'false');
+            ownerEditorDialog.focus();
+        }
+
+        document.querySelectorAll('.edit-owners-button:not(:disabled)').forEach((button) => {
+            button.addEventListener('click', () => openOwnerEditor(button));
+        });
+
+        ownerEditor.querySelector('.owner-editor-close').addEventListener('click', closeOwnerEditor);
+        ownerEditor.addEventListener('click', (event) => {
+            if (event.target === ownerEditor) closeOwnerEditor();
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && ownerEditor.getAttribute('aria-hidden') === 'false') closeOwnerEditor();
+        });
+
+        saveOwnersButton.addEventListener('click', async () => {
+            const ownerIds = [...document.querySelectorAll('input[name="owner_ids"]:checked')].map((input) => input.value);
+            if (!ownerIds.length) {
+                ownerEditorMessage.textContent = 'เลือกผู้หารอย่างน้อย 1 คน';
+                return;
+            }
+
+            saveOwnersButton.disabled = true;
+            saveOwnersButton.textContent = 'กำลังบันทึก…';
+            ownerEditorMessage.textContent = '';
+
+            try {
+                const response = await fetch(`/api/order-items/${encodeURIComponent(editingOrderItemId)}/owners`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        session_id: summaryPage.dataset.sessionId,
+                        user_id: summaryPage.dataset.userId,
+                        owner_ids: ownerIds
+                    })
+                });
+                const result = await response.json();
+                if (!response.ok || !result.success) throw new Error(result.message || 'บันทึกผู้หารไม่สำเร็จ');
+                window.location.reload();
+            } catch (error) {
+                ownerEditorMessage.textContent = error.message || 'เกิดข้อผิดพลาด กรุณาลองอีกครั้ง';
+                saveOwnersButton.disabled = false;
+                saveOwnersButton.textContent = 'บันทึกผู้หาร';
+            }
+        });
+    </script>
 </body>
 </html>
