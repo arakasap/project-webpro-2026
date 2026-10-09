@@ -5,113 +5,80 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ตะกร้าสินค้าในโต๊ะ</title>
     <link rel="stylesheet" href="/css/cart.css">
+    <link rel="stylesheet" href="/css/customer-ui.css">
+    <link rel="stylesheet" href="/css/customer-summary-ui.css">
 </head>
 <body>
 
-<div class="container">
-    <!-- Header -->
-    <div class="header-bar">
-        <a href="/menu?session_id=<%= sessionId %>&user_id=<%= userId %>" class="back-btn">‹ เพิ่มรายการอาหาร</a>
-        <span class="table-badge">โต๊ะ <%= tableNo %></span>
-    </div>
-
-    <!-- สรุปยอดรวม -->
-    <div class="summary-card">
-        <div class="summary-title">สรุปรายการโต๊ะ <%= tableNo %></div>
-        <div class="user-share-row me">
-            <span>ยอดของคุณ (<%= currentUser.name %>)</span>
-            <span style="color: #28a745; font-weight: bold;">฿<%= myTotalAmount.toLocaleString() %></span>
+<main class="container customer-summary-page customer-summary-page--actions">
+    <header class="summary-page-header">
+        <a href="/menu?session_id=<%= encodeURIComponent(sessionId) %>&user_id=<%= encodeURIComponent(userId) %>" class="summary-back-link">‹ เมนู</a>
+        <div class="summary-page-brand">
+            <h1>รายการที่สั่งแล้ว</h1>
         </div>
-        <div class="table-total-row">
-            <span>ยอดรวมทั้งโต๊ะ (รอส่งเข้าครัว)</span>
-            <span>฿<%= tableTotalAmount.toLocaleString() %></span>
+        <span class="customer-pill">โต๊ะ <%= tableNo %></span>
+    </header>
+
+    <section class="summary-overview" aria-label="สรุปยอดในตะกร้า">
+        <div class="summary-stat">
+            <span class="overview-label">รายการในตะกร้า</span>
+            <strong><%= cartItems.length %> <small>รายการ</small></strong>
         </div>
+        <div class="summary-stat summary-stat-highlight">
+            <span class="overview-label">ยอดของคุณ</span>
+            <strong>฿<%= myTotalAmount.toLocaleString() %></strong>
+        </div>
+    </section>
+    <div class="table-total-row">
+        <span>ยอดรวมทั้งโต๊ะ · รอส่งเข้าครัว</span>
+        <strong>฿<%= tableTotalAmount.toLocaleString() %></strong>
     </div>
 
-    <!-- หัวข้อรายการ -->
-    <div class="section-header">
-        รายการอาหารในตะกร้าทั้งหมด (<%= cartItems.length %> รายการ)
-    </div>
-
-    <!-- รายการอาหารทั้งหมดในโต๊ะ (จัดเรียง: ของเราขึ้นก่อน ของคนอื่นทีหลัง) -->
-    <div class="cart-items-list">
-        <% if (cartItems && cartItems.length > 0) { 
-            // แยกรายการออกเป็น 2 กลุ่ม
-            const myItems = cartItems.filter(item => item.isMyItem);
-            const otherItems = cartItems.filter(item => !item.isMyItem);
-        %>
-
-            <!-- 1. ส่วนของรายการตัวเอง (ขึ้นก่อน) -->
-            <% if (myItems.length > 0) { %>
-                <div class="sub-section-title" style="color: #28a745;">✨ รายการของคุณ (<%= myItems.length %>)</div>
-                <% myItems.forEach(item => { %>
-                    <div class="item-card my-item" id="item-card-<%= item.id %>">
-                        <img src="<%= item.image || '/images/default-food.png' %>" class="item-img" alt="<%= item.title %>">
-                        
-                        <div class="item-details">
-                            <div>
-                                <span class="badge-my-item">รายการของคุณ</span>
-                                <div class="item-title"><%= item.title %></div>
-                                <div class="item-sub">จำนวน: <%= item.quantity %> ชิ้น</div>
-                                <% if (item.note) { %>
-                                    <div class="item-note">โน้ต: <%= item.note %></div>
+    <section class="cart-section">
+        <div class="section-header">รายการอาหารในตะกร้า <span>(<%= cartItems.length %>)</span></div>
+        <div class="cart-items-list">
+            <% if (cartItems && cartItems.length > 0) { %>
+                <% cartItems.forEach((item) => { %>
+                    <article class="cart-item-card <%= item.isMyItem ? 'my-item' : 'other-item' %>" id="item-card-<%= item.id %>">
+                        <div class="cart-image-wrap">
+                            <% if (item.image) { %>
+                                <img src="<%= item.image %>" class="cart-item-image" alt="<%= item.title %>" loading="lazy" onerror="this.hidden=true; this.nextElementSibling.hidden=false">
+                                <div class="cart-image-placeholder" hidden aria-hidden="true">🍽</div>
+                            <% } else { %>
+                                <div class="cart-image-placeholder" aria-hidden="true">🍽</div>
+                            <% } %>
+                        </div>
+                        <div class="cart-item-content">
+                            <div class="cart-item-top">
+                                <span class="owner-badge <%= item.isMyItem ? 'owner-mine' : 'owner-shared' %>"><%= item.isMyItem ? 'รายการของคุณ' : 'รายการของเพื่อน' %></span>
+                                <% if (item.isMyItem) { %>
+                                    <button type="button" class="edit-item-btn" data-item-id="<%= item.id %>" data-title="<%= item.title %>" data-price="<%= item.price %>" data-image="<%= item.image || '' %>" data-quantity="<%= item.quantity %>" data-note="<%= item.note || '' %>" data-owner-ids="<%= item.owner_ids || userId %>" onclick="openCartItemEditor(this)">แก้ไข</button>
+                                    <button type="button" class="btn-delete" onclick="deleteCartItem('<%= item.id %>')" aria-label="ลบ <%= item.title %>" title="ลบรายการ">×</button>
                                 <% } %>
-
-                                <div class="item-owners" style="font-size: 0.85rem; color: #555; margin-top: 4px;">
-                                    <strong>คนสั่ง:</strong> <%= item.ownerNames %> 
-                                    <% if (item.shareCount > 1) { %>
-                                        <br><span style="color: #d9534f;">(หาร <%= item.shareCount %> คน ตกคนละ ฿<%= item.pricePerPerson.toLocaleString() %>)</span>
-                                    <% } %>
-                                </div>
+                            </div>
+                            <h2 class="cart-item-title"><%= item.title %></h2>
+                            <p class="cart-item-meta">จำนวน <%= item.quantity %> จาน</p>
+                            <% if (item.note) { %><p class="cart-item-note">หมายเหตุ: <%= item.note %></p><% } %>
+                            <% if (item.shareCount > 1) { %>
+                                <p class="cart-item-share">หาร <%= item.shareCount %> คน · คนละ ฿<%= item.pricePerPerson.toLocaleString() %></p>
+                            <% } %>
+                            <div class="cart-item-footer">
+                                <span class="cart-item-owners"><%= item.ownerNames || currentUser.name %></span>
+                                <strong class="item-total">฿<%= item.itemTotal.toLocaleString() %></strong>
                             </div>
                         </div>
-
-                        <div class="item-price-group">
-                            <button type="button" class="btn-delete" onclick="deleteCartItem('<%= item.id %>')">✕</button>
-                            <div class="item-total">฿<%= item.itemTotal.toLocaleString() %></div>
-                        </div>
-                    </div>
+                    </article>
                 <% }); %>
+            <% } else { %>
+                <div class="empty-cart">
+                    <div class="empty-mark" aria-hidden="true">—</div>
+                    <h2>ยังไม่มีรายการในตะกร้า</h2>
+                    <p>เลือกอาหารจากเมนูแล้วรายการจะแสดงที่นี่</p>
+                    <a href="/menu?session_id=<%= encodeURIComponent(sessionId) %>&user_id=<%= encodeURIComponent(userId) %>">กลับไปเลือกอาหาร</a>
+                </div>
             <% } %>
-
-            <!-- 2. ส่วนของรายการเพื่อน (ขึ้นทีหลัง) -->
-            <% if (otherItems.length > 0) { %>
-                <div class="sub-section-title" style="color: #6c757d; margin-top: 20px;">👥 รายการของเพื่อนร่วมโต๊ะ (<%= otherItems.length %>)</div>
-                <% otherItems.forEach(item => { %>
-                    <div class="item-card" id="item-card-<%= item.id %>">
-                        <img src="<%= item.image || '/images/default-food.png' %>" class="item-img" alt="<%= item.title %>">
-                        
-                        <div class="item-details">
-                            <div>
-                                <span class="badge-other-item">รายการของเพื่อน</span>
-                                <div class="item-title"><%= item.title %></div>
-                                <div class="item-sub">จำนวน: <%= item.quantity %> ชิ้น</div>
-                                <% if (item.note) { %>
-                                    <div class="item-note">โน้ต: <%= item.note %></div>
-                                <% } %>
-
-                                <div class="item-owners" style="font-size: 0.85rem; color: #555; margin-top: 4px;">
-                                    <strong>คนสั่ง:</strong> <%= item.ownerNames %> 
-                                    <% if (item.shareCount > 1) { %>
-                                        <span style="color: #d9534f;">(หาร <%= item.shareCount %> คน ตกคนละ ฿<%= item.pricePerPerson.toLocaleString() %>)</span>
-                                    <% } %>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="item-price-group">
-                            <div class="item-total">฿<%= item.itemTotal.toLocaleString() %></div>
-                        </div>
-                    </div>
-                <% }); %>
-            <% } %>
-
-        <% } else { %>
-            <div class="empty-cart">
-                ยังไม่มีรายการอาหารในตะกร้าของโต๊ะนี้
-            </div>
-        <% } %>
-    </div>
+        </div>
+    </section>
 
     <!-- ปุ่มด้านล่าง -->
     <div class="bottom-bar">
@@ -124,62 +91,213 @@
             ยืนยันออร์เดอร์ของคุณ (<%= myItemsCount %>)
         </button>
     </div>
+</main>
+
+<div class="cart-edit-overlay" id="cartEditModal" onclick="closeCartEditOnOverlay(event)" aria-hidden="true">
+    <section class="cart-edit-modal" role="dialog" aria-modal="true" aria-labelledby="cartEditTitle">
+        <header class="cart-edit-header">
+            <div>
+                <h2 id="cartEditTitle">แก้ไขรายการอาหาร</h2>
+                <p id="cartEditPrice"></p>
+            </div>
+            <button type="button" class="cart-edit-close" onclick="closeCartItemEditor()" aria-label="ปิด">×</button>
+        </header>
+        <div class="cart-edit-image-wrap">
+            <div id="cartEditImage" class="cart-edit-image" role="img" aria-label="ภาพเมนูอาหาร"></div>
+            <div id="cartEditImagePlaceholder" class="cart-edit-image-placeholder" hidden aria-hidden="true">🍽</div>
+        </div>
+        <div class="cart-edit-group">
+            <span class="cart-edit-label">จำนวน</span>
+            <div class="cart-edit-quantity">
+                <button type="button" onclick="changeCartEditQuantity(-1)" aria-label="ลดจำนวน">−</button>
+                <output id="cartEditQuantity">1</output>
+                <button type="button" onclick="changeCartEditQuantity(1)" aria-label="เพิ่มจำนวน">+</button>
+            </div>
+        </div>
+        <div class="cart-edit-group">
+            <span class="cart-edit-label">คนหารรายการนี้</span>
+            <div class="cart-edit-users">
+                <% (sessionUsers || []).forEach((member) => { %>
+                    <label class="owner-chip">
+                        <input type="checkbox" name="cart_edit_owner_ids" value="<%= member.user_id %>">
+                        <span class="owner-chip-label"><%= member.name %><% if (String(member.user_id) === String(userId)) { %> (ฉัน)<% } %></span>
+                    </label>
+                <% }); %>
+            </div>
+        </div>
+        <div class="cart-edit-group">
+            <label class="cart-edit-label" for="cartEditNote">รายละเอียดเพิ่มเติม / หมายเหตุ</label>
+            <input type="text" id="cartEditNote" class="cart-edit-note" maxlength="200" placeholder="เช่น เผ็ดน้อย, ไม่ใส่ผักชี">
+        </div>
+        <button type="button" class="cart-edit-submit" id="cartEditSubmit" onclick="saveCartItemEdit()">บันทึกการแก้ไข</button>
+    </section>
 </div>
 
 <script>
-// ส่งเฉพาะรายการของตัวเองเข้าครัว
-async function sendOrderToKitchen() {
-    if (!confirm('ยืนยันส่งรายการอาหารของคุณไปยังครัว?')) return;
+    window.cartContext = {
+        sessionId: '<%= sessionId %>',
+        userId: '<%= userId %>'
+    };
 
-    const btn = document.getElementById('btn-submit-order');
-    btn.disabled = true;
-    btn.innerText = 'กำลังส่งเข้าครัว...';
+    let editingCartItemId = null;
+    let editingCartItemPrice = 0;
+    let editingCartItemQuantity = 1;
 
-    try {
-        const response = await fetch('/api/orders/send-to-kitchen', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                tableNo: '<%= tableNo %>',
-                userId: '<%= userId %>'
-            })
+    function openCartItemEditor(button) {
+        editingCartItemId = button.dataset.itemId;
+        editingCartItemPrice = Number(button.dataset.price) || 0;
+        editingCartItemQuantity = Number(button.dataset.quantity) || 1;
+
+        document.getElementById('cartEditTitle').textContent = button.dataset.title || 'แก้ไขรายการอาหาร';
+        document.getElementById('cartEditPrice').textContent = `฿${editingCartItemPrice.toLocaleString()} / จาน`;
+        document.getElementById('cartEditNote').value = button.dataset.note || '';
+        document.getElementById('cartEditQuantity').textContent = String(editingCartItemQuantity);
+
+        const image = document.getElementById('cartEditImage');
+        const placeholder = document.getElementById('cartEditImagePlaceholder');
+        image.hidden = !button.dataset.image;
+        placeholder.hidden = Boolean(button.dataset.image);
+        image.replaceChildren();
+        if (button.dataset.image) {
+            const photo = document.createElement('img');
+            photo.src = button.dataset.image;
+            photo.alt = button.dataset.title || '';
+            photo.className = 'cart-edit-photo';
+            photo.addEventListener('error', () => {
+                image.hidden = true;
+                placeholder.hidden = false;
+            }, { once: true });
+            image.appendChild(photo);
+            image.setAttribute('aria-label', photo.alt || 'ภาพเมนูอาหาร');
+        }
+
+        const selectedOwners = (button.dataset.ownerIds || window.cartContext.userId).split(',');
+        document.querySelectorAll('input[name="cart_edit_owner_ids"]').forEach((input) => {
+            input.checked = selectedOwners.includes(input.value);
         });
-
-        const result = await response.json();
-
-        if (result.success) {
-            alert('ส่งรายการอาหารของคุณเข้าครัวเรียบร้อยแล้ว!');
-            window.location.href = `/order-status?session_id=<%= sessionId %>&user_id=<%= userId %>`;
-        } else {
-            alert('เกิดข้อผิดพลาด: ' + result.message);
-            btn.disabled = false;
-            btn.innerText = '🍳 ยืนยันออร์เดอร์ของคุณ';
-        }
-    } catch (err) {
-        console.error(err);
-        alert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้');
-        btn.disabled = false;
-        btn.innerText = '🍳 ยืนยันออร์เดอร์ของคุณ';
+        document.getElementById('cartEditModal').classList.add('active');
+        document.getElementById('cartEditModal').setAttribute('aria-hidden', 'false');
     }
-}
 
-// ลบรายการ (เฉพาะรายการที่ตัวเองสั่ง/มีส่วนหาร)
-async function deleteCartItem(itemId) {
-    if (!confirm('ต้องการลบรายการนี้ใช่หรือไม่?')) return;
-
-    try {
-        const response = await fetch(`/api/cart/item/${itemId}`, { method: 'DELETE' });
-        const result = await response.json();
-
-        if (result.success) {
-            location.reload();
-        } else {
-            alert('ลบไม่สำเร็จ: ' + result.message);
-        }
-    } catch (err) {
-        alert('เกิดข้อผิดพลาดในการลบรายการ');
+    function closeCartItemEditor() {
+        const modal = document.getElementById('cartEditModal');
+        modal.classList.remove('active');
+        modal.setAttribute('aria-hidden', 'true');
     }
-}
+
+    function closeCartEditOnOverlay(event) {
+        if (event.target.id === 'cartEditModal') closeCartItemEditor();
+    }
+
+    function changeCartEditQuantity(change) {
+        editingCartItemQuantity = Math.max(1, Math.min(99, editingCartItemQuantity + change));
+        document.getElementById('cartEditQuantity').textContent = String(editingCartItemQuantity);
+    }
+
+    async function saveCartItemEdit() {
+        const ownerIds = [...document.querySelectorAll('input[name="cart_edit_owner_ids"]:checked')].map((input) => input.value);
+        if (!ownerIds.length) return alert('เลือกคนรับผิดชอบอย่างน้อย 1 คน');
+
+        const button = document.getElementById('cartEditSubmit');
+        button.disabled = true;
+        try {
+            const response = await fetch(`/api/cart/item/${encodeURIComponent(editingCartItemId)}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    session_id: window.cartContext.sessionId,
+                    user_id: window.cartContext.userId,
+                    quantity: editingCartItemQuantity,
+                    note: document.getElementById('cartEditNote').value,
+                    owner_ids: ownerIds
+                })
+            });
+            const result = await response.json();
+            if (!response.ok || !result.success) throw new Error(result.message || 'แก้ไขรายการไม่สำเร็จ');
+            window.location.reload();
+        } catch (error) {
+            alert(error.message || 'เกิดข้อผิดพลาดในการบันทึก');
+            button.disabled = false;
+        }
+    }
+
+    async function sendOrderToKitchen() {
+        if (!confirm('ยืนยันส่งรายการอาหารของคุณไปยังครัว?')) return;
+
+        const btn = document.getElementById('btn-submit-order');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerText = 'กำลังส่งเข้าครัว...';
+        }
+
+        const context = window.cartContext || {};
+        const sessionId = context.sessionId || '';
+        const userId = context.userId || '';
+
+        try {
+            const confirmResponse = await fetch('/api/orders/confirm-from-session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    session_id: sessionId,
+                    user_id: userId
+                })
+            });
+
+            const confirmResult = await confirmResponse.json();
+            if (!confirmResponse.ok || !confirmResult.success) {
+                throw new Error(confirmResult.message || 'ไม่สามารถยืนยันออเดอร์ได้');
+            }
+
+            const response = await fetch('/api/orders/send-to-kitchen', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    tableNo: sessionId,
+                    userId: userId
+                })
+            });
+
+            const result = await response.json();
+            if (!response.ok || !result.success) {
+                throw new Error(result.message || 'เกิดข้อผิดพลาดในการส่งเข้าครัว');
+            }
+
+            window.location.href = `/order-status?session_id=${encodeURIComponent(sessionId)}&user_id=${encodeURIComponent(userId)}`;
+        } catch (err) {
+            console.error(err);
+            alert(err.message || 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerText = '🍳 ยืนยันออร์เดอร์ของคุณ';
+            }
+        }
+    }
+
+    async function deleteCartItem(itemId) {
+        if (!confirm('ต้องการลบรายการนี้ใช่หรือไม่?')) return;
+
+        try {
+            const response = await fetch(`/api/cart/item/${encodeURIComponent(itemId)}`, { method: 'DELETE' });
+            const result = await response.json();
+
+            if (result.success) {
+                location.reload();
+            } else {
+                alert('ลบไม่สำเร็จ: ' + result.message);
+            }
+        } catch (err) {
+            alert('เกิดข้อผิดพลาดในการลบรายการ');
+        }
+    }
+
+    window.sendOrderToKitchen = sendOrderToKitchen;
+    window.deleteCartItem = deleteCartItem;
+    window.openCartItemEditor = openCartItemEditor;
+    window.changeCartEditQuantity = changeCartEditQuantity;
+    window.closeCartItemEditor = closeCartItemEditor;
+    window.closeCartEditOnOverlay = closeCartEditOnOverlay;
+    window.saveCartItemEdit = saveCartItemEdit;
 </script>
 
 </body>

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>สรุปรายชื่อผู้รับผิดชอบ</title>
+    <link rel="stylesheet" href="/css/customer-ui.css">
+    <link rel="stylesheet" href="/css/owner-summary.css">
+    <link rel="stylesheet" href="/css/customer-summary-ui.css">
+</head>
+<body>
+    <main class="owner-summary-page customer-summary-page">
+        <header class="summary-page-header">
+            <a class="summary-back-link" href="/menu?session_id=<%= encodeURIComponent(sessionId) %>&user_id=<%= encodeURIComponent(user.user_id) %>">‹ เมนู</a>
+            <div class="summary-page-brand">
+                <h1>สรุปคนที่สั่ง</h1>
+            </div>
+            <span class="customer-pill">โต๊ะ <%= tableNo %></span>
+        </header>
+
+        <section class="summary-overview" aria-label="สรุปยอดรวมเจ้าของรายการ">
+            <div class="summary-stat">
+                <span class="overview-label">จำนวนคน</span>
+                <strong><%= owners.length %> <small>คน</small></strong>
+            </div>
+            <div class="summary-stat summary-stat-highlight">
+                <span class="overview-label">ยอดรวม</span>
+                <strong>฿<%= owners.reduce((sum, owner) => sum + Number(owner.total_amount || 0), 0).toLocaleString() %></strong>
+            </div>
+        </section>
+
+        <% if (owners.length > 0) { %>
+            <section class="owner-list" aria-label="รายชื่อผู้รับผิดชอบ">
+                <% owners.forEach((owner) => { %>
+                    <article class="owner-card">
+                        <div class="owner-head">
+                            <div class="owner-avatar"><%= String(owner.name || 'N').charAt(0) %></div>
+                            <div class="owner-meta">
+                                <h2><%= owner.name %></h2>
+                                <p><%= owner.item_count %> รายการ · ยอดรวม <strong>฿<%= Number(owner.total_amount || 0).toLocaleString(undefined, { maximumFractionDigits: 0 }) %></strong></p>
+                            </div>
+                        </div>
+
+                        <% if (owner.items && owner.items.length > 0) { %>
+                            <ul class="owner-item-list">
+                                <% owner.items.forEach((item) => { %>
+                                    <li>
+                                        <span><%= item.item_name %></span>
+                                        <strong>฿<%= Number(item.line_total || 0).toLocaleString(undefined, { maximumFractionDigits: 0 }) %></strong>
+                                    </li>
+                                <% }); %>
+                            </ul>
+                        <% } else { %>
+                            <p class="owner-empty">ยังไม่มีรายการที่รับผิดชอบ</p>
+                        <% } %>
+                    </article>
+                <% }); %>
+            </section>
+        <% } else { %>
+            <section class="summary-empty">
+                <span aria-hidden="true">—</span>
+                <h2>ยังไม่มีคนรับผิดชอบ</h2>
+                <p>เมื่อมีเมนูที่ถูกเลือกให้คนในโต๊ะ รายชื่อและยอดรวมจะแสดงที่นี่</p>
+            </section>
+        <% } %>
+
+    </main>
+</body>
+</html>

@@ -206,3 +206,30 @@ body {
 .btn-done:hover {
     background-color: #16a34a;
 }
+
+.combined-payment-note {
+    margin: 0;
+    color: #1e5622;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.payment-empty {
+    grid-column: 1 / -1;
+    padding: 36px 20px;
+    border: 1px dashed #cbd5cb;
+    border-radius: 12px;
+    background: #fff;
+    text-align: center;
+}
+
+.payment-empty h2 {
+    color: #1e293b;
+    font-size: 17px;
+}
+
+.payment-empty p {
+    margin-top: 6px;
+    color: #59675b;
+    font-size: 13px;
+}

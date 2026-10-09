@@ -1,15 +1,106 @@
 const express = require('express');
+const session = require('express-session');
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// -----------------------------------------------------------------------------
+// 1. Session cart helpers
+// -----------------------------------------------------------------------------
+function buildSessionCartKey(sessionId, userId) {
+    return `cart:${String(sessionId)}:${String(userId)}`;
+}
+
+function getSessionCartStore(sessionState) {
+    if (!sessionState) return null;
+    return (sessionState.cart && typeof sessionState.cart === 'object') ? sessionState.cart : sessionState;
+}
+
+function getSessionCartState(req, sessionId, userId) {
+    if (!req.session) {
+        throw new Error('Session middleware is not initialized.');
+    }
+
+    if (!req.session.cart) {
+        req.session.cart = {};
+    }
+
+    const key = buildSessionCartKey(sessionId, userId);
+    if (!req.session.cart[key]) {
+        req.session.cart[key] = { items: [] };
+    }
+
+    return req.session.cart[key];
+}
+
+function addSessionCartItem(sessionState, cartKey, item) {
+    const cartStore = getSessionCartStore(sessionState);
+    if (!cartStore) return false;
+    if (!cartStore[cartKey]) {
+        cartStore[cartKey] = { items: [] };
+    }
+
+    cartStore[cartKey].items.push({
+        ...item,
+        qty: Number(item.qty) || 1,
+        menu_item_id: String(item.menu_item_id),
+        note: String(item.note || ''),
+        shared_user_ids: Array.isArray(item.shared_user_ids)
+            ? item.shared_user_ids.map(String)
+            : (item.shared_user_ids ? [String(item.shared_user_ids)] : [])
+    });
+
+    return true;
+}
+
+function removeSessionCartItem(sessionState, cartKey, targetId) {
+    const cartStore = getSessionCartStore(sessionState);
+    if (!cartStore || !cartStore[cartKey]) return false;
+
+    const before = cartStore[cartKey].items.length;
+    cartStore[cartKey].items = cartStore[cartKey].items.filter((item) => {
+        const currentId = String(item.temp_id || item.menu_item_id || item.id || '');
+        return currentId !== String(targetId);
+    });
+
+    return before !== cartStore[cartKey].items.length;
+}
+
+function getSessionCartSnapshot(sessionState, sessionId, userId) {
+    const cartStore = getSessionCartStore(sessionState);
+    const key = buildSessionCartKey(sessionId, userId);
+    const cart = cartStore && cartStore[key] ? cartStore[key] : { items: [] };
+
+    return {
+        items: (cart.items || []).map((item, index) => ({
+            ...item,
+            temp_id: item.temp_id || `temp-${index}-${String(item.menu_item_id || 'item')}`,
+            qty: Number(item.qty) || 1,
+            title: item.title || item.name || 'เมนู',
+            name: item.name || item.title || 'เมนู',
+            shared_user_ids: Array.isArray(item.shared_user_ids)
+                ? item.shared_user_ids.map(String)
+                : (item.shared_user_ids ? [String(item.shared_user_ids)] : [])
+        }))
+    };
+}
+
 // View engine setup
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
 // Middlewares
+app.use(session({
+    secret: 'restaurant-ordering-system-secret',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        httpOnly: true,
+        sameSite: 'lax'
+    }
+}));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -37,15 +128,26 @@ app.get('/', (req, res) => {
     db.all('SELECT * FROM SESSION_USERS WHERE session_id = ?', [sessionId], (err, existingUsers) => {
         if (err) existingUsers = [];
 
-        res.render('index', {
-            sessionId: sessionId,
-            shopName: "ไอทีม่วนแจ่ม",
-            existingUsers: existingUsers,
-            instructions: [
-                "ใส่ชื่อเล่นของคุณและเริ่มสั่งอาหาร",
-                "เพิ่มรายการได้ทุกเมื่อ",
-                "แยกจ่ายเงินและจ่ายตามที่คุณต้องการ"
-            ]
+        db.get(`
+            SELECT name, image_url
+            FROM MENU_ITEMS
+            WHERE is_available = 1 AND image_url IS NOT NULL AND TRIM(image_url) != ''
+            ORDER BY menu_item_id
+            LIMIT 1
+        `, [], (menuErr, featuredItem) => {
+            if (menuErr) featuredItem = null;
+
+            res.render('index', {
+                sessionId: sessionId,
+                shopName: "ไอทีม่วนแจ่ม",
+                featuredItem: featuredItem,
+                existingUsers: existingUsers,
+                instructions: [
+                    "ใส่ชื่อเล่นของคุณและเริ่มสั่งอาหาร",
+                    "เพิ่มรายการได้ทุกเมื่อ",
+                    "แยกจ่ายเงินและจ่ายตามที่คุณต้องการ"
+                ]
+            });
         });
     });
 });
@@ -108,6 +210,10 @@ app.get('/menu', (req, res) => {
     db.get('SELECT * FROM SESSION_USERS WHERE user_id = ?', [user_id], (err, user) => {
         if (err || !user) return res.status(400).send('ไม่พบข้อมูลผู้ใช้งาน');
 
+        if (String(user.session_id) !== String(session_id)) {
+            return res.status(400).send('ผู้ใช้ไม่ได้อยู่ในโต๊ะนี้');
+        }
+
         db.all('SELECT * FROM SESSION_USERS WHERE session_id = ?', [session_id], (err, sessionUsers) => {
             if (err) sessionUsers = [];
 
@@ -132,58 +238,482 @@ app.get('/menu', (req, res) => {
 });
 
 // -----------------------------------------------------------------------------
-// 3. รับฟอร์มเพิ่มรายการอาหารลงตะกร้า (status = 'pending')
+// Customer order status
 // -----------------------------------------------------------------------------
-app.post('/order/add', (req, res) => {
-    const { session_id, user_id, menu_item_id, qty, note, shared_user_ids } = req.body;
-    const itemQty = parseInt(qty) || 1;
+app.get('/order-status', (req, res) => {
+    const { session_id, user_id } = req.query;
+    if (!session_id) return res.redirect('/');
 
-    let ownersList = [];
-    if (Array.isArray(shared_user_ids)) {
-        ownersList = shared_user_ids;
-    } else if (shared_user_ids) {
-        ownersList = [shared_user_ids];
-    } else {
-        ownersList = [user_id];
-    }
+    const findSession = (callback) => {
+        db.get('SELECT session_id, table_id FROM SESSIONS WHERE session_id = ?', [session_id], (err, sessionRow) => {
+            if (err) return res.status(500).send('เกิดข้อผิดพลาดในการตรวจสอบโต๊ะ');
+            if (sessionRow) return callback(sessionRow);
 
-    db.get('SELECT order_id FROM ORDERS WHERE session_id = ? AND LOWER(status) = "active"', [session_id], (err, order) => {
-        if (err) return res.status(500).send('เกิดข้อผิดพลาดในการตรวจสอบออเดอร์');
+            db.get(
+                `SELECT session_id, table_id FROM SESSIONS
+                 WHERE CAST(table_id AS TEXT) = CAST(? AS TEXT) AND LOWER(status) = 'active'
+                 ORDER BY session_id DESC LIMIT 1`,
+                [session_id],
+                (tableErr, activeSession) => {
+                    if (tableErr) return res.status(500).send('เกิดข้อผิดพลาดในการตรวจสอบโต๊ะ');
+                    callback(activeSession || null);
+                }
+            );
+        });
 
-        const insertOrderItem = (orderId) => {
-            const sqlItem = `INSERT INTO ORDER_ITEMS (order_id, menu_item_id, qty, note, status) VALUES (?, ?, ?, ?, 'pending')`;
+        // Read-only summary of all saved food items for the customer's table session
+        app.get('/table-summary', (req, res) => {
+            const sessionId = String(req.query.session_id || '');
+            const userId = String(req.query.user_id || '');
+            if (!sessionId || !userId) return res.redirect('/');
 
-            db.run(sqlItem, [orderId, menu_item_id, itemQty, note || ''], function (err) {
-                if (err) return res.status(500).send('ไม่สามารถเพิ่มรายการอาหารได้');
+            db.get('SELECT user_id, name FROM SESSION_USERS WHERE user_id = ? AND session_id = ?', [userId, sessionId], (userErr, user) => {
+                if (userErr) return res.status(500).send('เกิดข้อผิดพลาดในการตรวจสอบผู้ใช้');
+                if (!user) return res.status(400).send('ไม่พบผู้ใช้ในโต๊ะนี้');
 
-                const orderItemId = this.lastID;
-                if (ownersList.length === 0) {
-                    return res.redirect(`/menu?session_id=${session_id}&user_id=${user_id}`);
+                const sql = `
+                    SELECT oi.order_item_id, oi.qty, oi.note, oi.status, oi.cancel_reason,
+                           mi.name, mi.price, mi.image_url,
+                           GROUP_CONCAT(DISTINCT su.name) AS owner_names
+                    FROM ORDER_ITEMS oi
+                    JOIN ORDERS o ON o.order_id = oi.order_id
+                    JOIN MENU_ITEMS mi ON mi.menu_item_id = oi.menu_item_id
+                    LEFT JOIN ORDER_ITEM_OWNERS oio ON oio.order_item_id = oi.order_item_id
+                    LEFT JOIN SESSION_USERS su ON su.user_id = oio.user_id
+                    WHERE o.session_id = ?
+                    GROUP BY oi.order_item_id
+                    ORDER BY oi.order_item_id DESC
+                `;
+
+                db.all(sql, [sessionId], (itemsErr, items) => {
+                    if (itemsErr) {
+                        console.error('Error fetching table order summary:', itemsErr.message);
+                        return res.status(500).send('เกิดข้อผิดพลาดในการดึงรายการอาหาร');
+                    }
+
+                    db.get(`
+                        SELECT t.table_number
+                        FROM SESSIONS s
+                        JOIN TABLES t ON t.table_id = s.table_id
+                        WHERE s.session_id = ?
+                    `, [sessionId], (tableErr, table) => {
+                        const tableItems = items || [];
+                        const tableTotal = tableItems.reduce((sum, item) => {
+                            if (String(item.status).toLowerCase() === 'cancelled') return sum;
+                            return sum + (Number(item.price) || 0) * (Number(item.qty) || 0);
+                        }, 0);
+
+                        res.render('table-summary', {
+                            user,
+                            sessionId,
+                            tableNo: table && table.table_number ? table.table_number : sessionId,
+                            items: tableItems,
+                            tableTotal
+                        });
+                    });
+                });
+            });
+        });
+    };
+
+    findSession((sessionRow) => {
+        if (!sessionRow) {
+            return res.render('order-status', {
+                sessionId: session_id,
+                userId: user_id || '',
+                tableNo: session_id,
+                items: [],
+                updatedAt: new Date()
+            });
+        }
+
+        const loadItems = (currentUser) => {
+            const sql = `
+                  SELECT oi.order_item_id, oi.qty, oi.note, oi.status, oi.cancel_reason,
+                      mi.name, mi.price, mi.image_url,
+                      GROUP_CONCAT(DISTINCT oio.user_id) AS owner_ids,
+                      GROUP_CONCAT(DISTINCT su.name) AS owner_names
+                FROM ORDER_ITEMS oi
+                JOIN ORDERS o ON o.order_id = oi.order_id
+                JOIN MENU_ITEMS mi ON mi.menu_item_id = oi.menu_item_id
+                LEFT JOIN ORDER_ITEM_OWNERS oio ON oio.order_item_id = oi.order_item_id
+                LEFT JOIN SESSION_USERS su ON su.user_id = oio.user_id
+                WHERE o.session_id = ?
+                  AND (? IS NULL OR EXISTS (
+                      SELECT 1 FROM ORDER_ITEM_OWNERS own
+                      WHERE own.order_item_id = oi.order_item_id AND own.user_id = ?
+                  ))
+                GROUP BY oi.order_item_id
+                ORDER BY CASE LOWER(TRIM(oi.status))
+                    WHEN 'pending' THEN 1
+                    WHEN 'ordered' THEN 2
+                    WHEN 'cooking' THEN 3
+                    WHEN 'ready' THEN 4
+                    WHEN 'served' THEN 5
+                    WHEN 'cancelled' THEN 6
+                    ELSE 7
+                END, oi.order_item_id DESC
+            `;
+
+            db.all(sql, [sessionRow.session_id, currentUser ? currentUser.user_id : null, currentUser ? currentUser.user_id : null], (err, items) => {
+                if (err) {
+                    console.error('Error fetching customer order status:', err.message);
+                    return res.status(500).send('เกิดข้อผิดพลาดในการดึงสถานะออร์เดอร์');
                 }
 
-                const placeholders = ownersList.map(() => '(?, ?)').join(', ');
-                const sqlOwners = `INSERT INTO ORDER_ITEM_OWNERS (order_item_id, user_id) VALUES ${placeholders}`;
-
-                const ownerParams = [];
-                ownersList.forEach(uId => {
-                    ownerParams.push(orderItemId, uId);
-                });
-
-                db.run(sqlOwners, ownerParams, (err) => {
-                    if (err) console.error('Error inserting item owners:', err.message);
-                    res.redirect(`/menu?session_id=${session_id}&user_id=${user_id}`);
+                db.get('SELECT table_number FROM TABLES WHERE table_id = ?', [sessionRow.table_id], (tableErr, table) => {
+                    db.all('SELECT user_id, name FROM SESSION_USERS WHERE session_id = ? ORDER BY user_id', [sessionRow.session_id], (usersErr, sessionUsers) => {
+                        res.render('order-status', {
+                            sessionId: sessionRow.session_id,
+                            userId: currentUser ? currentUser.user_id : '',
+                            tableNo: table && table.table_number ? table.table_number : sessionRow.table_id,
+                            sessionUsers: sessionUsers || [],
+                            items: items || [],
+                            updatedAt: new Date()
+                        });
+                    });
                 });
             });
         };
 
-        if (!order) {
-            db.run('INSERT INTO ORDERS (session_id, status) VALUES (?, "active")', [session_id], function (err) {
-                if (err) return res.status(500).send('เกิดข้อผิดพลาดในการสร้างออเดอร์');
-                insertOrderItem(this.lastID);
+        if (!user_id) return loadItems(null);
+        db.get('SELECT user_id, name FROM SESSION_USERS WHERE user_id = ? AND session_id = ?', [user_id, sessionRow.session_id], (err, currentUser) => {
+            if (err) return res.status(500).send('เกิดข้อผิดพลาดในการตรวจสอบผู้ใช้');
+            if (!currentUser) return res.status(400).send('ไม่พบผู้ใช้ในโต๊ะนี้');
+            loadItems(currentUser);
+        });
+    });
+});
+
+// Read-only customer table order summary
+app.get('/table-summary', (req, res) => {
+    const sessionId = String(req.query.session_id || '');
+    const userId = String(req.query.user_id || '');
+    if (!sessionId || !userId) return res.redirect('/');
+
+    db.get(
+        'SELECT user_id, name FROM SESSION_USERS WHERE user_id = ? AND session_id = ?',
+        [userId, sessionId],
+        (userErr, user) => {
+            if (userErr) return res.status(500).send('เกิดข้อผิดพลาดในการตรวจสอบผู้ใช้');
+            if (!user) return res.status(400).send('ไม่พบผู้ใช้ในโต๊ะนี้');
+
+            const sql = `
+                SELECT oi.order_item_id, oi.qty, oi.note, oi.status, oi.cancel_reason,
+                       mi.name, mi.price, mi.image_url,
+                       GROUP_CONCAT(DISTINCT su.name) AS owner_names
+                FROM ORDER_ITEMS oi
+                JOIN ORDERS o ON o.order_id = oi.order_id
+                JOIN MENU_ITEMS mi ON mi.menu_item_id = oi.menu_item_id
+                LEFT JOIN ORDER_ITEM_OWNERS oio ON oio.order_item_id = oi.order_item_id
+                LEFT JOIN SESSION_USERS su ON su.user_id = oio.user_id
+                WHERE o.session_id = ?
+                GROUP BY oi.order_item_id
+                ORDER BY oi.order_item_id DESC
+            `;
+
+            db.all(sql, [sessionId], (itemsErr, items) => {
+                if (itemsErr) {
+                    console.error('Error fetching table order summary:', itemsErr.message);
+                    return res.status(500).send('เกิดข้อผิดพลาดในการดึงรายการอาหาร');
+                }
+
+                db.get(
+                    `SELECT t.table_number
+                     FROM SESSIONS s JOIN TABLES t ON t.table_id = s.table_id
+                     WHERE s.session_id = ?`,
+                    [sessionId],
+                    (tableErr, table) => {
+                        const normalizedItems = (items || []).map((item) => {
+                            const ownerNames = String(item.owner_names || '')
+                                .split(',')
+                                .map((name) => String(name).trim())
+                                .filter(Boolean);
+                            const itemTotal = (Number(item.price) || 0) * (Number(item.qty) || 0);
+                            const shareCount = ownerNames.length || 1;
+                            return {
+                                ...item,
+                                owner_names: ownerNames,
+                                itemTotal,
+                                splitPricePerPerson: itemTotal / shareCount,
+                                itemStatus: String(item.status || '').toLowerCase()
+                            };
+                        });
+
+                        const tableTotal = normalizedItems.reduce((total, item) => {
+                            if (String(item.status).toLowerCase() === 'cancelled') return total;
+                            return total + (Number(item.price) || 0) * (Number(item.qty) || 0);
+                        }, 0);
+
+                        db.all('SELECT user_id, name FROM SESSION_USERS WHERE session_id = ? ORDER BY user_id', [sessionId], (usersErr, sessionUsers) => {
+                            const userNames = (sessionUsers || []).map((member) => member.name).filter(Boolean);
+                            const userTotals = {};
+                            userNames.forEach((name) => {
+                                userTotals[name] = { total: 0, calcText: [] };
+                            });
+
+                            normalizedItems.forEach((item) => {
+                                const tags = Array.isArray(item.owner_names) ? item.owner_names : [];
+                                const shareCount = tags.length || Math.max(userNames.length, 1);
+                                const perPerson = (Number(item.price) || 0) * (Number(item.qty) || 0) / shareCount;
+
+                                if (tags.length > 0) {
+                                    tags.forEach((ownerName) => {
+                                        if (!userTotals[ownerName]) {
+                                            userTotals[ownerName] = { total: 0, calcText: [] };
+                                        }
+                                        userTotals[ownerName].total += perPerson;
+                                        userTotals[ownerName].calcText.push(`${item.name} ${item.qty}x ${item.price} = ${((Number(item.price) || 0) * (Number(item.qty) || 0)).toFixed(2)}`);
+                                    });
+                                    return;
+                                }
+
+                                userNames.forEach((name) => {
+                                    userTotals[name].total += perPerson;
+                                    userTotals[name].calcText.push(`${item.name} ${item.qty}x ${item.price} = ${((Number(item.price) || 0) * (Number(item.qty) || 0)).toFixed(2)}`);
+                                });
+                            });
+
+                            const splitDetails = Object.keys(userTotals).map((name) => {
+                                const detail = userTotals[name];
+                                return {
+                                    name,
+                                    calcString: detail.calcText.length > 0
+                                        ? detail.calcText.join(' + ') + ` = ${(detail.total || 0).toFixed(2)}.-`
+                                        : '0.00.-',
+                                    total: detail.total || 0
+                                };
+                            });
+
+                            res.render('table-summary', {
+                                sessionId,
+                                user,
+                                tableNo: table && table.table_number ? table.table_number : sessionId,
+                                items: normalizedItems,
+                                tableTotal,
+                                splitDetails,
+                                sessionUsers: sessionUsers || []
+                            });
+                        });
+                    }
+                );
             });
-        } else {
-            insertOrderItem(order.order_id);
         }
+    );
+});
+
+app.get('/owner-summary', (req, res) => {
+    const sessionId = String(req.query.session_id || '');
+    const userId = String(req.query.user_id || '');
+
+    if (!sessionId || !userId) return res.redirect('/');
+
+    db.get(
+        'SELECT user_id, name FROM SESSION_USERS WHERE user_id = ? AND session_id = ?',
+        [userId, sessionId],
+        (userErr, user) => {
+            if (userErr) return res.status(500).send('เกิดข้อผิดพลาดในการตรวจสอบผู้ใช้');
+            if (!user) return res.status(400).send('ไม่พบผู้ใช้ในโต๊ะนี้');
+
+            db.get(
+                `SELECT t.table_number
+                 FROM SESSIONS s
+                 JOIN TABLES t ON t.table_id = s.table_id
+                 WHERE s.session_id = ?`,
+                [sessionId],
+                (tableErr, table) => {
+                    if (tableErr) return res.status(500).send('เกิดข้อผิดพลาดในการตรวจสอบโต๊ะ');
+
+                    db.all(
+                        `SELECT su.user_id, su.name,
+                                COUNT(DISTINCT oi.order_item_id) AS item_count,
+                                COALESCE(SUM(CASE WHEN LOWER(COALESCE(oi.status, '')) != 'cancelled' THEN (mi.price * oi.qty) ELSE 0 END), 0) AS total_amount
+                         FROM SESSION_USERS su
+                         LEFT JOIN ORDER_ITEM_OWNERS oio ON oio.user_id = su.user_id
+                         LEFT JOIN ORDER_ITEMS oi ON oi.order_item_id = oio.order_item_id
+                         LEFT JOIN MENU_ITEMS mi ON mi.menu_item_id = oi.menu_item_id
+                         LEFT JOIN ORDERS o ON o.order_id = oi.order_id AND o.session_id = ?
+                         WHERE su.session_id = ?
+                         GROUP BY su.user_id, su.name
+                         ORDER BY su.user_id`,
+                        [sessionId, sessionId],
+                        (ownersErr, ownerRows) => {
+                            if (ownersErr) {
+                                console.error('Error fetching owner summary:', ownersErr.message);
+                                return res.status(500).send('เกิดข้อผิดพลาดในการดึงสรุปรายชื่อผู้รับผิดชอบ');
+                            }
+
+                            const owners = ownerRows.map((row) => ({
+                                ...row,
+                                total_amount: Number(row.total_amount || 0),
+                                item_count: Number(row.item_count || 0)
+                            }));
+
+                            const ownerDetails = [];
+                            const pendingQueries = owners.map((owner) => new Promise((resolve) => {
+                                db.all(
+                                    `SELECT oi.order_item_id, oi.qty, oi.status,
+                                            mi.name AS item_name,
+                                            mi.price,
+                                            (mi.price * oi.qty) AS line_total
+                                     FROM ORDER_ITEMS oi
+                                     JOIN ORDER_ITEM_OWNERS oio ON oio.order_item_id = oi.order_item_id
+                                     JOIN MENU_ITEMS mi ON mi.menu_item_id = oi.menu_item_id
+                                     JOIN ORDERS o ON o.order_id = oi.order_id
+                                     WHERE o.session_id = ? AND oio.user_id = ? AND LOWER(COALESCE(oi.status, '')) != 'cancelled'
+                                     ORDER BY oi.order_item_id DESC`,
+                                    [sessionId, owner.user_id],
+                                    (itemsErr, itemRows) => {
+                                        if (itemsErr) {
+                                            console.error('Error fetching owner item list:', itemsErr.message);
+                                            resolve({ user_id: owner.user_id, items: [] });
+                                            return;
+                                        }
+
+                                        resolve({
+                                            user_id: owner.user_id,
+                                            items: (itemRows || []).map((item) => ({
+                                                ...item,
+                                                line_total: Number(item.line_total || 0)
+                                            }))
+                                        });
+                                    }
+                                );
+                            }));
+
+                            Promise.all(pendingQueries).then((detailRows) => {
+                                detailRows.forEach((detail) => {
+                                    const owner = owners.find((item) => item.user_id === detail.user_id);
+                                    if (owner) {
+                                        ownerDetails.push({
+                                            user_id: owner.user_id,
+                                            name: owner.name,
+                                            total_amount: owner.total_amount,
+                                            item_count: owner.item_count,
+                                            items: detail.items
+                                        });
+                                    }
+                                });
+
+                                res.render('owner-summary', {
+                                    sessionId,
+                                    user,
+                                    tableNo: table && table.table_number ? table.table_number : sessionId,
+                                    owners: detailRows.length ? ownerDetails : owners.map((owner) => ({
+                                        user_id: owner.user_id,
+                                        name: owner.name,
+                                        total_amount: owner.total_amount,
+                                        item_count: owner.item_count,
+                                        items: []
+                                    }))
+                                });
+                            }).catch(() => {
+                                res.status(500).send('เกิดข้อผิดพลาดในการจัดรูปแบบสรุปผู้รับผิดชอบ');
+                            });
+                        }
+                    );
+                }
+            );
+        }
+    );
+});
+
+app.post('/api/order-items/:id/owners', (req, res) => {
+    const orderItemId = Number(req.params.id);
+    const sessionId = String(req.body.session_id || '');
+    const userId = String(req.body.user_id || '');
+    const ownerIds = [...new Set((Array.isArray(req.body.owner_ids) ? req.body.owner_ids : []).map(String).filter(Boolean))];
+
+    if (!Number.isInteger(orderItemId) || orderItemId <= 0 || !sessionId || !userId || ownerIds.length === 0) {
+        return res.status(400).json({ success: false, message: 'ข้อมูลผู้รับผิดชอบไม่ครบถ้วน' });
+    }
+
+    db.get(`
+        SELECT oi.order_item_id, oi.status
+        FROM ORDER_ITEMS oi
+        JOIN ORDERS o ON o.order_id = oi.order_id
+        JOIN ORDER_ITEM_OWNERS current_owner ON current_owner.order_item_id = oi.order_item_id
+        WHERE oi.order_item_id = ? AND o.session_id = ? AND current_owner.user_id = ?
+    `, [orderItemId, sessionId, userId], (findErr, item) => {
+        if (findErr) return res.status(500).json({ success: false, message: 'ตรวจสอบรายการไม่สำเร็จ' });
+        if (!item) return res.status(404).json({ success: false, message: 'ไม่พบรายการหรือคุณไม่มีสิทธิ์แก้ไขผู้รับผิดชอบ' });
+        if (['served', 'cancelled'].includes(String(item.status).toLowerCase())) {
+            return res.status(400).json({ success: false, message: 'รายการที่เสิร์ฟหรือยกเลิกแล้วแก้ผู้รับผิดชอบไม่ได้' });
+        }
+
+        const placeholders = ownerIds.map(() => '?').join(',');
+        db.all(`SELECT user_id FROM SESSION_USERS WHERE session_id = ? AND user_id IN (${placeholders})`, [sessionId, ...ownerIds], (usersErr, users) => {
+            if (usersErr) return res.status(500).json({ success: false, message: 'ตรวจสอบสมาชิกโต๊ะไม่สำเร็จ' });
+            if ((users || []).length !== ownerIds.length) {
+                return res.status(400).json({ success: false, message: 'เลือกได้เฉพาะสมาชิกในโต๊ะนี้' });
+            }
+
+            db.serialize(() => {
+                db.run('BEGIN IMMEDIATE');
+                db.run('DELETE FROM ORDER_ITEM_OWNERS WHERE order_item_id = ?', [orderItemId], (deleteErr) => {
+                    if (deleteErr) {
+                        return db.run('ROLLBACK', () => res.status(500).json({ success: false, message: 'บันทึกผู้รับผิดชอบไม่สำเร็จ' }));
+                    }
+
+                    const values = ownerIds.map(() => '(?, ?)').join(', ');
+                    const params = ownerIds.flatMap((ownerId) => [orderItemId, ownerId]);
+                    db.run(`INSERT INTO ORDER_ITEM_OWNERS (order_item_id, user_id) VALUES ${values}`, params, (insertErr) => {
+                        if (insertErr) {
+                            return db.run('ROLLBACK', () => res.status(500).json({ success: false, message: 'บันทึกผู้รับผิดชอบไม่สำเร็จ' }));
+                        }
+                        db.run('COMMIT', (commitErr) => {
+                            if (commitErr) return res.status(500).json({ success: false, message: 'ยืนยันการบันทึกไม่สำเร็จ' });
+                            res.json({ success: true });
+                        });
+                    });
+                });
+            });
+        });
+    });
+});
+
+// -----------------------------------------------------------------------------
+// 3. รับฟอร์มเพิ่มรายการอาหารลงตะกร้าชั่วคราวใน session
+// -----------------------------------------------------------------------------
+app.post('/order/add', (req, res) => {
+    const { session_id, user_id, menu_item_id, qty, note, shared_user_ids } = req.body;
+
+    if (!session_id || !user_id || !menu_item_id) {
+        return res.status(400).send('ข้อมูลไม่ครบถ้วน');
+    }
+
+    const ownersList = Array.isArray(shared_user_ids)
+        ? shared_user_ids
+        : (shared_user_ids ? [shared_user_ids] : [user_id]);
+
+    db.get('SELECT menu_item_id, name, price, image_url FROM MENU_ITEMS WHERE menu_item_id = ?', [menu_item_id], (err, menuItem) => {
+        if (err || !menuItem) {
+            return res.status(400).send('ไม่พบเมนูที่เลือก');
+        }
+
+        const sessionCart = getSessionCartState(req, session_id, user_id);
+        const itemEntry = {
+            temp_id: `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            menu_item_id: String(menuItem.menu_item_id),
+            name: menuItem.name,
+            price: Number(menuItem.price) || 0,
+            image_url: menuItem.image_url || '',
+            qty: parseInt(qty) || 1,
+            note: note || '',
+            shared_user_ids: ownersList.map(String),
+            user_id: String(user_id)
+        };
+
+        sessionCart.items.push(itemEntry);
+
+        req.session.save((saveErr) => {
+            if (saveErr) {
+                console.error('Error saving temp cart session:', saveErr.message);
+                return res.status(500).send('ไม่สามารถบันทึกลงตะกร้าชั่วคราวได้');
+            }
+
+            res.redirect(`/menu?session_id=${session_id}&user_id=${user_id}`);
+        });
     });
 });
 
@@ -221,15 +751,61 @@ app.get('/cart', (req, res) => {
         db.all('SELECT * FROM SESSION_USERS WHERE session_id = ?', [session_id], (err, sessionUsers) => {
             if (err) sessionUsers = [];
 
+            const tempCart = getSessionCartSnapshot(req.session, session_id, user_id);
+            const tempCartItems = tempCart.items.map((item) => {
+                const ownerIds = Array.isArray(item.shared_user_ids) ? item.shared_user_ids : [String(user_id)];
+                const ownerNames = ownerIds.map((ownerId) => {
+                    const match = sessionUsers && sessionUsers.find((u) => String(u.user_id) === String(ownerId));
+                    return match ? match.name : ownerId;
+                });
+                const itemTotal = (Number(item.price) || 0) * (Number(item.qty) || 1);
+                const shareCount = ownerIds.length || 1;
+                const pricePerPerson = itemTotal / shareCount;
+                const isMyItem = ownerIds.includes(String(user_id));
+
+                return {
+                    id: item.temp_id,
+                    quantity: Number(item.qty) || 1,
+                    note: item.note || '',
+                    status: 'pending',
+                    title: item.name || 'เมนู',
+                    price: Number(item.price) || 0,
+                    image: item.image_url || '/images/default-food.png',
+                    owner_ids: ownerIds.join(','),
+                    owner_names: ownerNames.join(', '),
+                    ownerIds,
+                    ownerNames: ownerNames.join(', '),
+                    menu_item_id: item.menu_item_id,
+                    shareCount,
+                    pricePerPerson,
+                    itemTotal,
+                    isMyItem,
+                    isTemp: true
+                };
+            });
+
             db.get('SELECT order_id FROM ORDERS WHERE session_id = ? AND LOWER(status) = "active"', [session_id], (err, order) => {
                 if (err || !order) {
+                    const cartItems = [...tempCartItems];
+                    let myTotalAmount = 0;
+                    let tableTotalAmount = 0;
+                    let myItemsCount = 0;
+
+                    cartItems.forEach((item) => {
+                        tableTotalAmount += item.itemTotal;
+                        if (item.isMyItem) {
+                            myTotalAmount += item.pricePerPerson;
+                            myItemsCount += 1;
+                        }
+                    });
+
                     return res.render('cart', {
                         currentUser,
                         sessionUsers,
-                        cartItems: [],
-                        myTotalAmount: 0,
-                        tableTotalAmount: 0,
-                        myItemsCount: 0,
+                        cartItems,
+                        myTotalAmount,
+                        tableTotalAmount,
+                        myItemsCount,
                         tableNo: session_id,
                         sessionId: session_id,
                         userId: user_id
@@ -239,6 +815,7 @@ app.get('/cart', (req, res) => {
                 const query = `
                     SELECT 
                         oi.order_item_id AS id,
+                        oi.menu_item_id,
                         oi.qty AS quantity,
                         oi.note,
                         oi.status,
@@ -259,35 +836,38 @@ app.get('/cart', (req, res) => {
                 db.all(query, [order.order_id], (err, rawItems) => {
                     if (err) rawItems = [];
 
-                    let myTotalAmount = 0;
-                    let tableTotalAmount = 0;
-                    let myItemsCount = 0;
-
-                    const cartItems = rawItems.map(item => {
+                    const dbCartItems = rawItems.map(item => {
                         const itemTotal = item.price * item.quantity;
-                        tableTotalAmount += itemTotal;
-
                         const ownerIds = item.owner_ids ? item.owner_ids.split(',') : [];
                         const ownerNamesList = item.owner_names ? item.owner_names.split(',') : [];
                         const shareCount = ownerIds.length || 1;
                         const pricePerPerson = itemTotal / shareCount;
-
                         const isMyItem = ownerIds.includes(String(user_id));
-
-                        if (isMyItem) {
-                            myTotalAmount += pricePerPerson;
-                            myItemsCount += 1;
-                        }
 
                         return {
                             ...item,
                             itemTotal,
+                            owner_ids: ownerIds.join(','),
                             ownerIds,
                             ownerNames: ownerNamesList.join(', '),
                             shareCount,
                             pricePerPerson,
                             isMyItem
                         };
+                    });
+
+                    const cartItems = [...dbCartItems, ...tempCartItems];
+                    let myTotalAmount = 0;
+                    let tableTotalAmount = 0;
+                    let myItemsCount = 0;
+
+                    cartItems.forEach((item) => {
+                        const itemTotal = Number(item.itemTotal || 0);
+                        tableTotalAmount += itemTotal;
+                        if (item.isMyItem) {
+                            myTotalAmount += Number(item.pricePerPerson || 0);
+                            myItemsCount += 1;
+                        }
                     });
 
                     res.render('cart', {
@@ -304,6 +884,171 @@ app.get('/cart', (req, res) => {
                 });
             });
         });
+    });
+});
+
+app.put('/api/cart/item/:id', (req, res) => {
+    const itemId = String(req.params.id || '');
+    const sessionId = String(req.body.session_id || '');
+    const userId = String(req.body.user_id || '');
+    const quantity = Number.parseInt(req.body.quantity, 10);
+    const note = String(req.body.note || '').trim().slice(0, 200);
+    const ownerIds = [...new Set((Array.isArray(req.body.owner_ids) ? req.body.owner_ids : []).map(String).filter(Boolean))];
+
+    if (!sessionId || !userId || !Number.isInteger(quantity) || quantity < 1 || quantity > 99 || ownerIds.length === 0) {
+        return res.status(400).json({ success: false, message: 'กรุณาตรวจสอบจำนวนและผู้รับผิดชอบ' });
+    }
+
+    const placeholders = ownerIds.map(() => '?').join(',');
+    db.all(`SELECT user_id FROM SESSION_USERS WHERE session_id = ? AND user_id IN (${placeholders})`, [sessionId, ...ownerIds], (usersErr, users) => {
+        if (usersErr) return res.status(500).json({ success: false, message: 'ตรวจสอบสมาชิกโต๊ะไม่สำเร็จ' });
+        if ((users || []).length !== ownerIds.length) {
+            return res.status(400).json({ success: false, message: 'เลือกได้เฉพาะสมาชิกในโต๊ะนี้' });
+        }
+
+        if (itemId.startsWith('temp-')) {
+            const cartKey = buildSessionCartKey(sessionId, userId);
+            const cart = req.session.cart && req.session.cart[cartKey];
+            const item = cart && (cart.items || []).find((entry) => String(entry.temp_id || entry.id) === itemId);
+            if (!item || !(item.shared_user_ids || []).map(String).includes(userId)) {
+                return res.status(404).json({ success: false, message: 'ไม่พบรายการหรือคุณไม่มีสิทธิ์แก้ไข' });
+            }
+
+            item.qty = quantity;
+            item.note = note;
+            item.shared_user_ids = ownerIds;
+            return req.session.save((saveErr) => {
+                if (saveErr) return res.status(500).json({ success: false, message: 'บันทึกรายการไม่สำเร็จ' });
+                res.json({ success: true });
+            });
+        }
+
+        const orderItemId = Number(itemId);
+        if (!Number.isInteger(orderItemId) || orderItemId <= 0) {
+            return res.status(400).json({ success: false, message: 'รหัสรายการไม่ถูกต้อง' });
+        }
+
+        db.get(`
+            SELECT oi.order_item_id
+            FROM ORDER_ITEMS oi
+            JOIN ORDERS o ON o.order_id = oi.order_id
+            JOIN ORDER_ITEM_OWNERS current_owner ON current_owner.order_item_id = oi.order_item_id
+            WHERE oi.order_item_id = ? AND o.session_id = ? AND oi.status = 'pending'
+              AND current_owner.user_id = ?
+        `, [orderItemId, sessionId, userId], (findErr, item) => {
+            if (findErr) return res.status(500).json({ success: false, message: 'ตรวจสอบรายการไม่สำเร็จ' });
+            if (!item) return res.status(404).json({ success: false, message: 'ไม่พบรายการที่แก้ไขได้' });
+
+            db.serialize(() => {
+                db.run('BEGIN IMMEDIATE');
+                db.run('UPDATE ORDER_ITEMS SET qty = ?, note = ? WHERE order_item_id = ? AND status = \'pending\'', [quantity, note, orderItemId], (updateErr) => {
+                    if (updateErr) {
+                        return db.run('ROLLBACK', () => res.status(500).json({ success: false, message: 'บันทึกรายการไม่สำเร็จ' }));
+                    }
+                    db.run('DELETE FROM ORDER_ITEM_OWNERS WHERE order_item_id = ?', [orderItemId], (deleteErr) => {
+                        if (deleteErr) {
+                            return db.run('ROLLBACK', () => res.status(500).json({ success: false, message: 'บันทึกผู้รับผิดชอบไม่สำเร็จ' }));
+                        }
+                        const values = ownerIds.map(() => '(?, ?)').join(', ');
+                        const params = ownerIds.flatMap((ownerId) => [orderItemId, ownerId]);
+                        db.run(`INSERT INTO ORDER_ITEM_OWNERS (order_item_id, user_id) VALUES ${values}`, params, (insertErr) => {
+                            if (insertErr) {
+                                return db.run('ROLLBACK', () => res.status(500).json({ success: false, message: 'บันทึกผู้รับผิดชอบไม่สำเร็จ' }));
+                            }
+                            db.run('COMMIT', (commitErr) => {
+                                if (commitErr) return res.status(500).json({ success: false, message: 'ยืนยันการบันทึกไม่สำเร็จ' });
+                                res.json({ success: true });
+                            });
+                        });
+                    });
+                });
+            });
+        });
+    });
+});
+
+// -----------------------------------------------------------------------------
+// 5. ยืนยันออร์เดอร์จากตะกร้าชั่วคราว และบันทึกลง DB
+// -----------------------------------------------------------------------------
+app.post('/api/orders/confirm-from-session', (req, res) => {
+    const { session_id, user_id } = req.body;
+
+    if (!session_id || !user_id) {
+        return res.status(400).json({ success: false, message: 'ข้อมูลโต๊ะและผู้ใช้ไม่ครบ' });
+    }
+
+    const sessionCart = getSessionCartState(req, session_id, user_id);
+    const items = sessionCart.items || [];
+
+    if (items.length === 0) {
+        return res.json({ success: true, message: 'ไม่มีรายการชั่วคราวให้ยืนยัน', skipped: true });
+    }
+
+    db.get('SELECT order_id FROM ORDERS WHERE session_id = ? AND LOWER(status) = "active"', [session_id], (err, order) => {
+        if (err) {
+            return res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดในการตรวจสอบออเดอร์' });
+        }
+
+        const insertItems = (orderId) => {
+            const insertQueue = items.map((item) => new Promise((resolve, reject) => {
+                const itemQty = Number(item.qty) || 1;
+                const itemOwners = Array.isArray(item.shared_user_ids) && item.shared_user_ids.length > 0
+                    ? item.shared_user_ids
+                    : [user_id];
+
+                db.run(
+                    'INSERT INTO ORDER_ITEMS (order_id, menu_item_id, qty, note, status) VALUES (?, ?, ?, ?, "pending")',
+                    [orderId, item.menu_item_id, itemQty, item.note || ''],
+                    function (insertErr) {
+                        if (insertErr) {
+                            return reject(insertErr);
+                        }
+
+                        const orderItemId = this.lastID;
+                        if (itemOwners.length === 0) {
+                            return resolve();
+                        }
+
+                        const ownerPlaceholders = itemOwners.map(() => '(?, ?)').join(', ');
+                        const ownerParams = [];
+                        itemOwners.forEach((ownerId) => ownerParams.push(orderItemId, ownerId));
+
+                        db.run(`INSERT INTO ORDER_ITEM_OWNERS (order_item_id, user_id) VALUES ${ownerPlaceholders}`, ownerParams, (ownerErr) => {
+                            if (ownerErr) {
+                                return reject(ownerErr);
+                            }
+                            resolve();
+                        });
+                    }
+                );
+            }));
+
+            Promise.all(insertQueue)
+                .then(() => {
+                    sessionCart.items = [];
+                    req.session.save((saveErr) => {
+                        if (saveErr) {
+                            console.error('Error clearing temp cart after confirm:', saveErr.message);
+                        }
+                        res.json({ success: true, message: 'บันทึกออเดอร์ลงฐานข้อมูลเรียบร้อยแล้ว' });
+                    });
+                })
+                .catch((saveErr) => {
+                    console.error('Error saving confirmed cart items:', saveErr.message);
+                    res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดในการบันทึกออเดอร์' });
+                });
+        };
+
+        if (!order) {
+            db.run('INSERT INTO ORDERS (session_id, status) VALUES (?, "active")', [session_id], function (orderErr) {
+                if (orderErr) {
+                    return res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดในการสร้างออเดอร์' });
+                }
+                insertItems(this.lastID);
+            });
+        } else {
+            insertItems(order.order_id);
+        }
     });
 });
 
@@ -349,6 +1094,31 @@ app.post('/api/orders/send-to-kitchen', (req, res) => {
 // -----------------------------------------------------------------------------
 app.delete('/api/cart/item/:id', (req, res) => {
     const itemId = req.params.id;
+
+    if (String(itemId).startsWith('temp-')) {
+        let removed = false;
+        Object.keys(req.session.cart || {}).forEach((cartKey) => {
+            const before = (req.session.cart[cartKey].items || []).length;
+            req.session.cart[cartKey].items = (req.session.cart[cartKey].items || []).filter((item) => {
+                return String(item.temp_id || item.id || '') !== String(itemId);
+            });
+            if ((req.session.cart[cartKey].items || []).length !== before) {
+                removed = true;
+            }
+        });
+
+        if (!removed) {
+            return res.status(404).json({ success: false, message: 'ไม่พบรายการชั่วคราวในตะกร้า' });
+        }
+
+        return req.session.save((saveErr) => {
+            if (saveErr) {
+                console.error('Error removing temp cart item:', saveErr.message);
+                return res.status(500).json({ success: false, message: 'ไม่สามารถลบรายการชั่วคราวได้' });
+            }
+            return res.json({ success: true });
+        });
+    }
 
     db.run('DELETE FROM ORDER_ITEM_OWNERS WHERE order_item_id = ?', [itemId], (err) => {
         if (err) return res.status(500).json({ success: false, message: 'ไม่สามารถลบรายการได้' });
@@ -596,6 +1366,7 @@ app.get('/cashier/table/:table_id', (req, res) => {
 // หน้าแสดงการชำระเงินแยกจ่าย (Split Payment)
 app.get('/cashier/table/:table_id/payment', (req, res) => {
     const tableId = req.params.table_id;
+    const paymentMode = String(req.query.mode || '') === 'combined' ? 'combined' : 'split';
 
     const sessionSql = `
         SELECT session_id 
@@ -613,7 +1384,8 @@ app.get('/cashier/table/:table_id/payment', (req, res) => {
                 sessionId: null,
                 paymentList: [],
                 paidCount: 0,
-                totalUsers: 0
+                totalUsers: 0,
+                paymentMode
             });
         }
 
@@ -649,7 +1421,22 @@ app.get('/cashier/table/:table_id/payment', (req, res) => {
 
                 let paymentList = [];
 
-                if (users.length > 0) {
+                if (paymentMode === 'combined') {
+                    const totalTablePrice = items.reduce((total, item) => {
+                        return total + (Number(item.price) || 0) * (Number(item.quantity) || 0);
+                    }, 0);
+
+                    if (totalTablePrice > 0) {
+                        const finalAmount = totalTablePrice.toFixed(2);
+                        paymentList = [{
+                            user_id: 0,
+                            name: `ชำระรวมทั้งโต๊ะ ${tableId}`,
+                            amount: finalAmount,
+                            isPaid: false,
+                            qrUrl: `https://promptpay.io/${PROMPTPAY_NO}/${finalAmount}.png`
+                        }];
+                    }
+                } else if (users.length > 0) {
                     let userPaymentData = {};
 
                     users.forEach(u => {
@@ -715,7 +1502,8 @@ app.get('/cashier/table/:table_id/payment', (req, res) => {
                     sessionId: sessionId,
                     paymentList: paymentList,
                     paidCount: paidCount,
-                    totalUsers: paymentList.length
+                    totalUsers: paymentList.length,
+                    paymentMode
                 });
             });
         });
@@ -787,55 +1575,6 @@ const KITCHEN_STEP = { ready: 'cooking', cooking: 'ready' };
 const SERVE_STEP = { served: 'ready' };
 // ข้อความแจ้งเตือนที่อนุญาตให้แสดงผ่าน query msg (กันการพิมพ์ค่าดิบจากผู้ใช้)
 const KITCHEN_MSG = ['taken', 'invalid', 'changed'];
-
-// Migration ฝั่งครัว (รันซ้ำได้): เพิ่มคอลัมน์ sent_at + seed พนักงานครัว 1 แถว
-function migrateKitchen() {
-    db.all('PRAGMA table_info(ORDER_ITEMS)', [], (err, cols) => {
-        if (err) {
-            console.error('Kitchen migration ตรวจสอบคอลัมน์ไม่สำเร็จ:', err.message);
-            return;
-        }
-        const hasSentAt = (cols || []).some((c) => c.name === 'sent_at');
-        if (!hasSentAt) {
-            db.run('ALTER TABLE ORDER_ITEMS ADD COLUMN sent_at DATETIME', (err) => {
-                if (err) {
-                    console.error('Kitchen migration เพิ่มคอลัมน์ sent_at ไม่สำเร็จ:', err.message);
-                } else {
-                    console.log('Kitchen migration เพิ่มคอลัมน์ sent_at แล้ว');
-                }
-            });
-        }
-        // ที่เก็บเหตุผลยกเลิก (แยกคอลัมน์ ไม่เขียนทับ note ของลูกค้า)
-        const hasReason = (cols || []).some((c) => c.name === 'cancel_reason');
-        if (!hasReason) {
-            db.run('ALTER TABLE ORDER_ITEMS ADD COLUMN cancel_reason TEXT', (err) => {
-                if (err) {
-                    console.error('Kitchen migration เพิ่มคอลัมน์ cancel_reason ไม่สำเร็จ:', err.message);
-                } else {
-                    console.log('Kitchen migration เพิ่มคอลัมน์ cancel_reason แล้ว');
-                }
-            });
-        }
-    });
-
-    db.get("SELECT employee_id FROM EMPLOYEES WHERE role = 'kitchen' LIMIT 1", [], (err, row) => {
-        if (err) {
-            console.error('Kitchen migration ตรวจสอบพนักงานครัวไม่สำเร็จ:', err.message);
-            return;
-        }
-        if (!row) {
-            db.run("INSERT INTO EMPLOYEES (name, role) VALUES ('พนักงานครัว', 'kitchen')", (err) => {
-                if (err) {
-                    console.error('Kitchen migration เพิ่มพนักงานครัวไม่สำเร็จ:', err.message);
-                } else {
-                    console.log('Kitchen migration เพิ่มพนักงานครัวแล้ว');
-                }
-            });
-        }
-    });
-}
-
-migrateKitchen();
 
 // แต่งแถว ORDER_ITEMS ให้พร้อมแสดงผล (เวลาไทย ป้ายใหม่ นาทีที่รอ ยอดเงิน เหตุผลยกเลิก)
 function makeItem(r, now) {
@@ -1175,6 +1914,8 @@ app.get('/orders', (req, res) => {
 // -----------------------------------------------------------------------------
 // Start Server
 // -----------------------------------------------------------------------------
-app.listen(PORT, () => {
-    console.log(`Server is running at http://localhost:${PORT}`);
-});
+if (require.main === module) {
+    app.listen(PORT, () => {
+        console.log(`Server is running at http://localhost:${PORT}`);
+    });
+}

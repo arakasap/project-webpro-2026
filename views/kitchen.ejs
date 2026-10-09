@@ -305,13 +305,10 @@
             * { transition: none !important; }
         }
     </style>
+    <link rel="stylesheet" href="/css/staff-dark.css">
 </head>
-<body>
-<nav class="sidebar">
-    <a href="/kitchen" class="<%= page === 'kitchen' ? 'active' : '' %>">ครัว</a>
-    <a href="/kitchen/ordered" class="<%= page === 'ordered' ? 'active' : '' %>">ออเดอร์ที่ต้องทำ</a>
-    <a href="/kitchen/status" class="<%= page === 'status' ? 'active' : '' %>">อัพเดทสถานะ</a>
-</nav>
+<body class="staff-ui staff-kitchen">
+
 <div class="kitchen-container">
     <header class="kitchen-header">
         <h1><%= title %></h1>

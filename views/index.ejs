@@ -6,160 +6,50 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= shopName %></title>
     <link rel="stylesheet" href="/css/index.css">
-    <style>
-        .note-label {
-            font-size: 13px;
-            color: #555;
-            margin-bottom: 8px;
-            font-weight: 600;
-            text-align: left;
-        }
-
-        .input-group-wrapper {
-            position: relative;
-            width: 100%;
-            margin-bottom: 15px;
-        }
-
-        .input-group-wrapper .input-field {
-            width: 100%;
-            padding: 14px 45px 14px 16px;
-            border: 1.5px solid #dcdcdc;
-            border-radius: 10px;
-            font-size: 16px;
-            background-color: #fff;
-            outline: none;
-            transition: all 0.3s ease;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
-            box-sizing: border-box;
-        }
-
-        .input-group-wrapper .input-field:focus {
-            border-color: #1e5622;
-            box-shadow: 0 0 0 4px rgba(30, 86, 34, 0.1);
-        }
-
-        /* ปรับแต่ง Dropdown ที่สร้างขึ้นมาเองให้สวยงามและพรีเมียม */
-        .custom-dropdown-list {
-            position: absolute;
-            left: 0;
-            width: 100%;
-            background-color: #fff;
-            border: 1.5px solid #dcdcdc;
-            border-radius: 10px;
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
-            z-index: 1000;
-            max-height: 200px;
-            overflow-y: auto;
-            display: none;
-            padding: 6px;
-            box-sizing: border-box;
-        }
-
-        .custom-dropdown-item {
-            padding: 10px 14px;
-            font-size: 15px;
-            color: #333;
-            cursor: pointer;
-            border-radius: 6px;
-            transition: background-color 0.2s, color 0.2s;
-            text-align: left;
-        }
-
-        .custom-dropdown-item:hover {
-            background-color: #f0f7f1;
-            color: #1e5622;
-            font-weight: 500;
-        }
-
-        .dropdown-icon {
-            position: absolute;
-            right: 16px;
-            top: 50%;
-            transform: translateY(-50%);
-            pointer-events: none;
-            color: #888;
-            font-size: 12px;
-            transition: transform 0.3s ease;
-        }
-
-        .btn-submit {
-            width: 100%;
-            padding: 14px;
-            background-color: #1e5622;
-            color: #fff;
-            border: none;
-            border-radius: 10px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: background-color 0.2s, transform 0.1s;
-            box-shadow: 0 4px 12px rgba(30, 86, 34, 0.2);
-        }
-
-        .btn-submit:hover {
-            background-color: #153e18;
-        }
-
-        .btn-submit:active {
-            transform: scale(0.98);
-        }
-
-        .reset-btn {
-            background: none;
-            border: none;
-            color: #d9534f;
-            cursor: pointer;
-            font-size: 13px;
-            text-decoration: underline;
-            transition: color 0.2s;
-        }
-
-        .reset-btn:hover {
-            color: #b52b27;
-        }
-    </style>
+    <link rel="stylesheet" href="/css/customer-ui.css">
 </head>
 
 <body>
     <div class="container">
-        <div class="top-bar">
-            <%= shopName %>
-        </div>
+        <header class="customer-header home-header">
+            <a class="home-brand" href="/" aria-label="หน้าแรก <%= shopName %>"><%= shopName %><span>สั่งอาหารที่โต๊ะ</span></a>
+            <span class="customer-pill">โต๊ะ <%= sessionId %></span>
+        </header>
 
-        <div class="banner">☥</div>
+        <% if (featuredItem && featuredItem.image_url) { %>
+            <section class="featured-food" aria-label="เมนูจากร้าน">
+                <img src="<%= featuredItem.image_url %>" alt="<%= featuredItem.name %>" class="featured-food-image" onerror="this.closest('.featured-food').hidden=true">
+                <div class="featured-food-copy">
+                    <span>จากเมนูของร้าน</span>
+                    <strong><%= featuredItem.name %></strong>
+                </div>
+            </section>
+        <% } %>
 
-        <div class="welcome-label">ยินดีต้อนรับสู่</div>
-        <div class="shop-title">
-            <%= shopName %>
-        </div>
+        <section class="welcome-copy">
+            <h1 class="customer-page-title">เริ่มสั่งอาหาร</h1>
+            <p class="customer-page-subtitle">ใส่ชื่อเล่นหรือเลือกชื่อเดิม เพื่อเริ่มรายการของคุณ</p>
+        </section>
 
-        <div class="section-label">มันทำงานอย่างไร?</div>
-        <ol class="steps">
-            <% instructions.forEach(function(item) { %>
-                <li><span><%= item %></span></li>
-            <% }); %>
-        </ol>
-
-        <!-- ฟอร์มหลัก -->
         <form action="/join-session" method="POST" id="joinForm">
             <input type="hidden" name="session_id" value="<%= sessionId %>">
             <input type="hidden" name="user_id" id="userIdInput">
 
             <% if (existingUsers && existingUsers.length > 0) { %>
-                <div class="note-label">✨ หรือเลือกชื่อเดิม / พิมพ์ชื่อใหม่ได้เลย</div>
+                <div class="field-label-row">
+                    <label class="field-label" for="nameInput">ชื่อเล่น</label>
+                    <span class="field-hint">เลือกชื่อเดิมหรือพิมพ์ชื่อใหม่</span>
+                </div>
+            <% } else { %>
+                <label class="field-label" for="nameInput">ชื่อเล่น</label>
             <% } %>
 
             <div class="input-group-wrapper">
-                <input type="text" id="nameInput" name="name" class="input-field" placeholder="ใส่ชื่อเล่นของคุณ" required autocomplete="off" oninput="handleInput()" onfocus="handleInput()">
-                
-                <!-- Custom Dropdowns แทน datalist แบบเดิม -->
+                <input type="text" id="nameInput" name="name" class="input-field" placeholder="เช่น มะลิ" required autocomplete="off" oninput="handleInput()" onfocus="handleInput()" aria-controls="customDropdown" aria-autocomplete="list">
                 <% if (existingUsers && existingUsers.length > 0) { %>
-                    <div id="customDropdown" class="custom-dropdown-list">
+                    <div id="customDropdown" class="custom-dropdown-list" role="listbox" aria-label="สมาชิกในโต๊ะ">
                         <% existingUsers.forEach(u => { %>
-                            <div class="custom-dropdown-item" onclick="selectUser('<%= u.name %>', '<%= u.user_id %>')">
-                                <%= u.name %>
-                            </div>
+                            <button type="button" class="custom-dropdown-item" data-name="<%= u.name %>" data-user-id="<%= u.user_id %>" role="option"><%= u.name %></button>
                         <% }) %>
                     </div>
                 <% } %>
@@ -168,9 +58,14 @@
             <button type="submit" class="btn-submit" id="submitBtn">เริ่มสั่งอาหาร</button>
         </form>
 
-        <div style="margin-top: 30px; text-align: center;">
+        <!-- <a class="order-status-link" href="/order-status?session_id=<%= encodeURIComponent(sessionId) %>">
+            <span class="status-link-mark" aria-hidden="true"></span>
+            <span><strong>ติดตามสถานะออร์เดอร์</strong><small>ดูรายการที่ส่งเข้าครัวแล้ว</small></span>
+        </a> -->
+
+        <footer class="home-footer">
             <button onclick="resetSystem()" class="reset-btn">ล้างข้อมูลระบบ (Reset)</button>
-        </div>
+        </footer>
     </div>
 
     <script>
@@ -183,20 +78,19 @@
             const userIdInput = document.getElementById('userIdInput');
             const form = document.getElementById('joinForm');
 
-            if (!dropdown) return;
-
-            // กรองรายชื่อที่ตรงกับข้อความที่พิมพ์
-            const filteredUsers = existingUsers.filter(u => u.name.toLowerCase().includes(inputVal));
-
-            if (filteredUsers.length > 0 && inputVal.length >= 0) {
-                let htmlContent = '';
-                filteredUsers.forEach(u => {
-                    htmlContent += `<div class="custom-dropdown-item" onclick="selectUser('${u.name}', '${u.user_id}')">${u.name}</div>`;
+            if (dropdown) {
+                const filteredUsers = existingUsers.filter(u => u.name.toLowerCase().includes(inputVal));
+                dropdown.replaceChildren();
+                filteredUsers.forEach((user) => {
+                    const option = document.createElement('button');
+                    option.type = 'button';
+                    option.className = 'custom-dropdown-item';
+                    option.setAttribute('role', 'option');
+                    option.textContent = user.name;
+                    option.addEventListener('click', () => selectUser(user.name, user.user_id));
+                    dropdown.appendChild(option);
                 });
-                dropdown.innerHTML = htmlContent;
-                dropdown.style.display = 'block';
-            } else {
-                dropdown.style.display = 'none';
+                dropdown.style.display = filteredUsers.length ? 'block' : 'none';
             }
 
             // ตรวจสอบว่าเป็นชื่อเดิมเป๊ะๆ หรือไม่ เพื่อเปลี่ยน Action ของฟอร์ม
@@ -220,7 +114,8 @@
             form.action = `/menu?session_id=<%= sessionId %>&user_id=${userId}`;
             form.method = 'GET';
 
-            document.getElementById('customDropdown').style.display = 'none';
+            const dropdown = document.getElementById('customDropdown');
+            if (dropdown) dropdown.style.display = 'none';
         }
 
         // ซ่อน Dropdown เมื่อคลิกพื้นที่นอกฟอร์ม

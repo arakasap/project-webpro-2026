@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ติดตามสถานะออร์เดอร์</title>
+    <link rel="stylesheet" href="/css/order-status.css">
+    <link rel="stylesheet" href="/css/customer-ui.css">
+    <link rel="stylesheet" href="/css/customer-summary-ui.css">
+</head>
+<body>
+    <main class="status-page customer-summary-page">
+        <header class="summary-page-header">
+            <a class="summary-back-link" href="<%= userId ? `/menu?session_id=${encodeURIComponent(sessionId)}&user_id=${encodeURIComponent(userId)}` : '/' %>">‹ เมนู</a>
+            <div class="summary-page-brand">
+                <h1>ติดตามออร์เดอร์</h1>
+            </div>
+            <span class="customer-pill">โต๊ะ <%= tableNo %></span>
+        </header>
+
+        <section class="summary-overview" aria-label="สรุปสถานะออร์เดอร์">
+            <div class="summary-stat">
+                <span class="overview-label">รายการที่ติดตาม</span>
+                <strong><%= items.length %> <small>รายการ</small></strong>
+            </div>
+            <div class="summary-stat summary-stat-highlight">
+                <span class="overview-label">กำลังดำเนินการ</span>
+                <strong><%= items.filter((item) => !['served', 'cancelled'].includes(String(item.status || '').toLowerCase())).length %> <small>รายการ</small></strong>
+            </div>
+        </section>
+
+        <% if (items.length) { %>
+            <section class="order-list" aria-label="รายการอาหารและสถานะ">
+                <% items.forEach((item) => {
+                    const statusMeta = {
+                        pending: { label: 'ยืนยันออร์เดอร์', className: 'pending' },
+                        ordered: { label: 'ส่งออร์เดอร์แล้ว', className: 'ordered' },
+                        cooking: { label: 'กำลังทำ', className: 'cooking' },
+                        ready: { label: 'รอเสิร์ฟ', className: 'ready', detail: 'ปรุงเสร็จแล้ว' },
+                        served: { label: 'เสิร์ฟแล้ว', className: 'served' },
+                        cancelled: { label: 'ยกเลิก', className: 'cancelled' }
+                    };
+                    const currentStatus = statusMeta[item.status] || { label: item.status, className: 'pending' };
+                %>
+                    <article class="order-card summary-item">
+                        <div class="order-image-wrap">
+                            <% if (item.image_url) { %>
+                                <img src="<%= item.image_url %>" class="order-image" alt="<%= item.name %>" loading="lazy" onerror="this.hidden=true; this.nextElementSibling.hidden=false">
+                                <div class="order-image-placeholder" hidden aria-hidden="true">🍽</div>
+                            <% } else { %>
+                                <div class="order-image-placeholder" aria-hidden="true">🍽</div>
+                            <% } %>
+                        </div>
+                        <div class="order-card-content">
+                            <div class="order-card-top">
+                                <span class="item-number">ออร์เดอร์ #<%= item.order_item_id %></span>
+                                <span class="status-badge <%= currentStatus.className %>"><%= currentStatus.label %></span>
+                            </div>
+                            <h2 class="dish-name"><%= item.name %></h2>
+                            <p class="item-meta">จำนวน <%= item.qty %> จาน</p>
+                            <% if (currentStatus.detail) { %><p class="status-detail"><%= currentStatus.detail %></p><% } %>
+                            <% if (item.note) { %><p class="item-note">หมายเหตุ: <%= item.note %></p><% } %>
+                            <% if (item.status === 'cancelled' && item.cancel_reason) { %><p class="cancel-note">เหตุผล: <%= item.cancel_reason %></p><% } %>
+                            <div class="order-card-footer">
+                                <div class="owner-summary">
+                                    <span class="owner-name"><%= item.owner_names || 'รายการของโต๊ะ' %></span>
+                                </div>
+                                <strong class="item-price">฿<%= (Number(item.price) * Number(item.qty)).toLocaleString() %></strong>
+                            </div>
+                        </div>
+                    </article>
+                <% }); %>
+            </section>
+        <% } else { %>
+            <section class="empty-state">
+                <div class="empty-mark" aria-hidden="true">—</div>
+                <h2>ยังไม่มีรายการให้ติดตาม</h2>
+                <p>เมื่อยืนยันออร์เดอร์แล้ว รายการและสถานะจากครัวจะแสดงที่นี่</p>
+                <% if (userId) { %>
+                    <a href="/menu?session_id=<%= encodeURIComponent(sessionId) %>&user_id=<%= encodeURIComponent(userId) %>">กลับไปเลือกอาหาร</a>
+                <% } %>
+            </section>
+        <% } %>
+
+        <footer class="status-footer">
+            <span class="live-dot"></span>
+            <span>ตรวจสอบสถานะอัตโนมัติทุก <b id="refresh-countdown">15</b> วินาที</span>
+        </footer>
+
+    </main>
+
+    <% if (userId) { %>
+        <div class="owner-modal-overlay" id="ownerModal" aria-hidden="true" onclick="closeOwnerEditorOnOverlay(event)">
+            <section class="owner-modal" role="dialog" aria-modal="true" aria-labelledby="ownerModalTitle">
+                <header class="owner-modal-header">
+                    <div>
+                        <h2 id="ownerModalTitle">แก้ผู้รับผิดชอบค่าอาหาร</h2>
+                        <p>เลือกสมาชิกที่ร่วมรับผิดชอบรายการนี้</p>
+                    </div>
+                    <button type="button" class="owner-modal-close" onclick="closeOwnerEditor()" aria-label="ปิด">×</button>
+                </header>
+                <div class="owner-choice-list">
+                    <% (sessionUsers || []).forEach((member) => { %>
+                        <label class="owner-chip">
+                            <input type="checkbox" name="owner_ids" value="<%= member.user_id %>">
+                            <span class="owner-chip-label"><%= member.name %><% if (String(member.user_id) === String(userId)) { %> (ฉัน)<% } %></span>
+                        </label>
+                    <% }); %>
+                </div>
+                <button type="button" class="owner-save-btn" id="saveOwnersButton" onclick="saveOwners()">บันทึกผู้รับผิดชอบ</button>
+            </section>
+        </div>
+    <% } %>
+
+    <script>
+        const statusContext = { sessionId: '<%= sessionId %>', userId: '<%= userId %>' };
+        let editingOrderItemId = null;
+
+        function openOwnerEditor(orderItemId, selectedOwnerIds) {
+            editingOrderItemId = orderItemId;
+            document.querySelectorAll('input[name="owner_ids"]').forEach((input) => {
+                input.checked = selectedOwnerIds.map(String).includes(input.value);
+            });
+            document.getElementById('ownerModal').classList.add('active');
+            document.getElementById('ownerModal').setAttribute('aria-hidden', 'false');
+        }
+
+        function closeOwnerEditor() {
+            const modal = document.getElementById('ownerModal');
+            if (!modal) return;
+            modal.classList.remove('active');
+            modal.setAttribute('aria-hidden', 'true');
+        }
+
+        function closeOwnerEditorOnOverlay(event) {
+            if (event.target.id === 'ownerModal') closeOwnerEditor();
+        }
+
+        async function saveOwners() {
+            const ownerIds = [...document.querySelectorAll('input[name="owner_ids"]:checked')].map((input) => input.value);
+            if (!ownerIds.length) return alert('เลือกผู้รับผิดชอบอย่างน้อย 1 คน');
+
+            const button = document.getElementById('saveOwnersButton');
+            button.disabled = true;
+            try {
+                const response = await fetch(`/api/order-items/${editingOrderItemId}/owners`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        session_id: statusContext.sessionId,
+                        user_id: statusContext.userId,
+                        owner_ids: ownerIds
+                    })
+                });
+                const result = await response.json();
+                if (!response.ok || !result.success) throw new Error(result.message || 'บันทึกผู้รับผิดชอบไม่สำเร็จ');
+                window.location.reload();
+            } catch (error) {
+                alert(error.message || 'เกิดข้อผิดพลาดในการบันทึก');
+                button.disabled = false;
+            }
+        }
+
+        let secondsLeft = 15;
+        const countdown = document.getElementById('refresh-countdown');
+        window.setInterval(() => {
+            secondsLeft -= 1;
+            if (countdown) countdown.textContent = String(secondsLeft);
+            if (secondsLeft <= 0) window.location.reload();
+        }, 1000);
+    </script>
+</body>
+</html>

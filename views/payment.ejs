@@ -3,10 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ชำระเงินแยกจ่าย (Split Payment)</title>
+    <title><%= paymentMode === 'combined' ? 'ชำระเงินรวมทั้งโต๊ะ' : 'ชำระเงินแยกตามผู้รับผิดชอบ' %></title>
     <link rel="stylesheet" href="/css/payment.css">
+    <link rel="stylesheet" href="/css/staff-dark.css">
 </head>
-<body>
+<body class="staff-ui staff-cashier">
+    <header class="staff-topbar">
+        <a class="staff-brand" href="/cashier">ไอทีม่วนแจ่ม <span>STAFF</span></a>
+        <nav class="staff-nav" aria-label="เมนูพนักงาน">
+            <a href="/cashier">จัดการโต๊ะ</a>
+            <a href="/orders">รายการออร์เดอร์</a>
+            <a href="/kitchen">หน้าครัว</a>
+        </nav>
+    </header>
     <div class="payment-wrapper">
         <!-- Header Bar -->
         <header class="payment-header">
@@ -15,7 +24,7 @@
                     <polyline points="15 18 9 12 15 6"></polyline>
                 </svg>
             </a>
-            <h1>ชำระเงิน (Payment)</h1>
+            <h1><%= paymentMode === 'combined' ? 'ชำระรวมทั้งโต๊ะ' : 'ชำระเงินแยกตามผู้รับผิดชอบ' %></h1>
             <div class="header-space"></div>
         </header>
 
@@ -43,6 +52,9 @@
                         </div>
 
                         <div class="card-footer">
+                            <% if (paymentMode === 'combined') { %>
+                                <p class="combined-payment-note">สแกน QR นี้เพื่อชำระยอดรวมของโต๊ะ</p>
+                            <% } else { %>
                             <form action="/cashier/table/<%= tableId %>/toggle-user-paid" method="POST" style="display:inline;">
                                 <input type="hidden" name="userId" value="<%= person.user_id %>">
                                 <input type="hidden" name="isPaid" value="<%= person.isPaid %>">
@@ -60,16 +72,26 @@
                                     <% } %>
                                 </button>
                             </form>
+                            <% } %>
                         </div>
                     </div>
                 <% }); %>
+            <% } else { %>
+                <section class="payment-empty">
+                    <h2>ยังไม่มียอดสำหรับสร้าง QR Code</h2>
+                    <p>กลับไปตรวจสอบรายการของโต๊ะก่อนดำเนินการชำระเงิน</p>
+                </section>
             <% } %>
         </main>
 
         <!-- Footer Actions Bar -->
         <footer class="payment-footer">
             <div class="summary-status">
-                สถานะการจ่าย: <strong><%= paidCount %>/<%= totalUsers %></strong> คนชำระแล้ว (Paid: <%= paidCount %> of <%= totalUsers %>)
+                <% if (paymentMode === 'combined') { %>
+                    โหมดจ่ายรวม · ใช้ QR Code เดียวสำหรับโต๊ะนี้
+                <% } else { %>
+                    สถานะการจ่าย: <strong><%= paidCount %>/<%= totalUsers %></strong> คนชำระแล้ว (Paid: <%= paidCount %> of <%= totalUsers %>)
+                <% } %>
             </div>
 
                 

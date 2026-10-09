@@ -5,8 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>สรุปรายการโต๊ะอาหาร - โต๊ะ <%= tableId %></title>
     <link rel="stylesheet" href="/css/cas-tab-detail.css">
+    <link rel="stylesheet" href="/css/staff-dark.css">
 </head>
-<body>
+<body class="staff-ui staff-cashier">
+    <header class="staff-topbar">
+        <a class="staff-brand" href="/cashier">ไอทีม่วนแจ่ม <span>STAFF</span></a>
+        <nav class="staff-nav" aria-label="เมนูพนักงาน">
+            <a class="active" href="/cashier">จัดการโต๊ะ</a>
+            <a href="/orders">รายการออร์เดอร์</a>
+            <a href="/kitchen">หน้าครัว</a>
+        </nav>
+    </header>
     <div class="summary-container">
         <header class="header-bar">
             <a href="/cashier" class="back-btn" title="ย้อนกลับ">
@@ -81,12 +90,22 @@
                         <span class="value"><%= typeof totalPrice !== 'undefined' ? totalPrice.toFixed(2) : '0.00' %> บาท</span>
                     </div>
 
-                    <!-- อัปเดตลิงก์ไปยังหน้า Payment แยกจ่ายโดยตรง -->
-                    <form action="/cashier/table/<%= tableId %>/payment" method="GET">
-                        <button type="submit" class="checkout-btn" <%= (typeof orders === 'undefined' || orders.length === 0) ? 'disabled style="opacity:0.6; cursor:not-allowed;"' : '' %>>
-                            ดำเนินการชำระเงิน <%= typeof totalPrice !== 'undefined' ? totalPrice.toFixed(2) : '0.00' %>.-
-                        </button>
-                    </form>
+                    <% if (typeof orders !== 'undefined' && orders.length > 0) { %>
+                        <div class="payment-choice-group" aria-label="เลือกรูปแบบชำระเงิน">
+                            <a class="payment-choice-btn split-choice" href="/cashier/table/<%= tableId %>/payment?mode=split">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16M4 12h16M4 19h16"/><circle cx="8" cy="5" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="10" cy="19" r="2"/></svg>
+                                <span><strong>หารตามข้อมูลผู้รับผิดชอบ</strong><small>สร้าง QR แยกตามยอดของแต่ละคน</small></span>
+                            </a>
+                            <a class="payment-choice-btn combined-choice" href="/cashier/table/<%= tableId %>/payment?mode=combined">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h18l-2 12H5L3 7Z"/><path d="M8 7a4 4 0 0 1 8 0M8 12h8"/></svg>
+                                <span><strong>จ่ายรวมทั้งโต๊ะ</strong><small>สร้าง QR ใบเดียวสำหรับยอดรวม</small></span>
+                            </a>
+                        </div>
+                    <% } else { %>
+                        <div class="payment-choice-group" aria-label="เลือกรูปแบบชำระเงิน">
+                            <button class="payment-choice-btn" type="button" disabled>ยังไม่มีรายการสำหรับชำระเงิน</button>
+                        </div>
+                    <% } %>
                 </div>
             </section>
         </main>

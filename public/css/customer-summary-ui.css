@@ -1,0 +1,204 @@
+:root {
+    --customer-primary: #1e5622;
+    --customer-primary-soft: #edf7ee;
+    --customer-page: #f4f5f2;
+    --customer-surface: #fff;
+    --customer-border: #e3e8df;
+    --customer-text: #1e2a1d;
+    --customer-muted: #59675b;
+    --customer-shadow: 0 4px 14px rgba(18, 40, 22, 0.07);
+}
+
+body {
+    display: flex;
+    justify-content: center;
+    min-height: 100vh;
+    min-height: 100svh;
+    margin: 0;
+    padding: 0;
+    background: #f5f5f5;
+    color: var(--customer-text);
+}
+
+.customer-summary-page {
+    width: 100%;
+    max-width: 420px;
+    min-height: 100vh;
+    min-height: 100svh;
+    margin: 0 auto;
+    padding: 15px 15px 32px;
+    background: #fff;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.03);
+}
+
+.customer-summary-page--actions {
+    padding-bottom: 116px;
+}
+
+.summary-page-header {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 9px;
+    min-height: 48px;
+    margin-bottom: 18px;
+    padding: 0 2px 14px;
+    border-bottom: 1px solid var(--customer-border);
+}
+
+.summary-back-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 38px;
+    padding: 6px 9px;
+    border-radius: 9px;
+    color: var(--customer-primary);
+    background: var(--customer-primary-soft);
+    font-size: 12px;
+    font-weight: 700;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.summary-page-brand {
+    min-width: 0;
+}
+
+.summary-page-brand h1 {
+    margin: 0;
+    color: var(--customer-text);
+    font-size: 19px;
+    font-weight: 700;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+}
+
+.summary-page-header .customer-pill {
+    min-height: 30px;
+    padding: 4px 9px;
+    border-radius: 999px;
+    color: var(--customer-primary);
+    background: var(--customer-primary-soft);
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.summary-overview {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin: 0 0 14px;
+}
+
+.summary-stat {
+    display: grid;
+    align-content: start;
+    gap: 6px;
+    min-width: 0;
+    min-height: 76px;
+    padding: 12px;
+    border: 1px solid var(--customer-border);
+    border-radius: 14px;
+    background: var(--customer-surface);
+    box-shadow: var(--customer-shadow);
+}
+
+.summary-stat-highlight {
+    border-color: rgba(30, 86, 34, 0.15);
+    background: #f2f8f2;
+}
+
+.overview-label {
+    color: var(--customer-muted);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.35;
+}
+
+.summary-overview strong {
+    color: var(--customer-primary);
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.25;
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+}
+
+.summary-overview strong small {
+    font-size: 12px;
+}
+
+.summary-item,
+.order-card,
+.cart-item-card,
+.owner-card,
+.summary-split,
+.summary-card {
+    border: 1px solid var(--customer-border);
+    border-radius: 16px;
+    background: var(--customer-surface);
+    box-shadow: var(--customer-shadow);
+}
+
+.summary-empty,
+.empty-state,
+.empty-cart {
+    margin-top: 16px;
+    padding: 38px 18px;
+    border: 1px dashed #cbd5cb;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.8);
+    text-align: center;
+}
+
+.summary-empty h2,
+.empty-state h2,
+.empty-cart h2 {
+    color: var(--customer-text);
+    font-size: 16px;
+}
+
+.summary-empty p,
+.empty-state p,
+.empty-cart p {
+    color: var(--customer-muted);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.table-total-row {
+    margin: 0 2px 18px;
+    padding: 10px 0;
+    border-top: 1px dashed #c8dfca;
+    border-bottom: 1px solid var(--customer-border);
+    color: var(--customer-muted);
+    font-size: 12px;
+}
+
+.table-total-row strong {
+    color: var(--customer-primary);
+    font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 360px) {
+    .summary-page-header {
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        gap: 6px;
+    }
+
+    .summary-back-link {
+        padding-inline: 7px;
+        font-size: 11px;
+    }
+
+    .summary-page-brand h1 {
+        font-size: 17px;
+    }
+
+    .summary-page-header .customer-pill {
+        padding-inline: 7px;
+        font-size: 11px;
+    }
+}

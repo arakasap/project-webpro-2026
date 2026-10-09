@@ -4,49 +4,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>รายการอาหาร - บจก.ป๊อบอายสเต๊ก</title>
+    <title>รายการอาหาร | ระบบสั่งอาหาร</title>
     <link rel="stylesheet" href="/css/menu.css">
+    <link rel="stylesheet" href="/css/customer-ui.css">
 </head>
 
 <body>
     <div class="container">
         <!-- Header Bar -->
-        <div class="user-bar">
+        <header class="user-bar customer-header">
             <div>คุณ: <span class="user-name">
                     <%= user.name %>
                 </span></div>
             <div class="table-info-group">
-                <div class="table-info">โต๊ะ <%= sessionId %>
+                <div class="table-info customer-pill">โต๊ะ <%= sessionId %>
                 </div>
-                <button type="button" class="btn-add-user-header" onclick="openAddUserModal()">+ เพิ่มคน</button>
+                <button type="button" class="btn-add-user-header" onclick="openAddUserModal()" aria-label="เพิ่มคนในโต๊ะ">+ เพิ่มคน</button>
             </div>
-        </div>
+        </header>
 
-        <h3 style="margin-top: 0; margin-bottom: 12px;">รายการอาหาร</h3>
+        <h1 class="customer-page-title menu-heading">รายการอาหาร</h1>
 
         <!-- หมวดหมู่อาหาร -->
-        <div class="categories-scroll">
-            <span class="category-chip active">ทั้งหมด</span>
+        <div class="categories-scroll" role="group" aria-label="กรองตามหมวดหมู่อาหาร">
+            <button type="button" class="category-chip active" data-category-id="all" aria-pressed="true">ทั้งหมด</button>
             <% categories.forEach(function(cat) { %>
-                <span class="category-chip">
+                <button type="button" class="category-chip" data-category-id="<%= cat.category_id %>" aria-pressed="false">
                     <%= cat.name %>
-                </span>
+                </button>
                 <% }); %>
         </div>
 
         <!-- รายการอาหารแบบ Grid 2 คอลัมน์ -->
         <div class="menu-grid">
             <% if (menuItems.length===0) { %>
-                <p style="grid-column: span 2; text-align: center; color: #888; margin-top: 20px;">
-                    ไม่มีรายการอาหารในระบบ</p>
+                <div class="menu-empty">
+                    <h2>ยังไม่มีเมนูอาหาร</h2>
+                    <p>เมนูที่พร้อมสั่งจะแสดงที่นี่</p>
+                </div>
                 <% } else { %>
                     <% menuItems.forEach(function(item) { %>
-                        <div class="menu-card">
+                        <article class="menu-card" data-category-id="<%= item.category_id %>">
                             <div class="menu-img-wrapper">
                                 <% if (item.image_url) { %>
-                                    <img src="<%= item.image_url %>" class="menu-img" alt="<%= item.name %>">
+                                    <img src="<%= item.image_url %>" class="menu-img" alt="<%= item.name %>" loading="lazy" onerror="this.hidden=true; this.nextElementSibling.hidden=false">
+                                    <div class="menu-img-placeholder" hidden aria-hidden="true">🍽️</div>
                                     <% } else { %>
-                                        <div class="menu-img-placeholder">🍽️</div>
+                                        <div class="menu-img-placeholder" aria-hidden="true">🍽️</div>
                                         <% } %>
                             </div>
 
@@ -63,31 +67,45 @@
                                     </button>
                                 </div>
                             </div>
-                        </div>
+                        </article>
                         <% }); %>
                             <% } %>
+            <p class="menu-filter-empty" id="menuFilterEmpty" hidden>ไม่มีเมนูในหมวดนี้</p>
         </div>
 
-        <!-- แถบปุ่มดูตะกร้าด้านล่าง -->
-        <div class="cart-bar">
-            <a href="/cart?session_id=<%= sessionId %>&user_id=<%= userId %>" class="cart-btn">
-                ดูรายการที่สั่งแล้ว
+        <!-- Customer navigation -->
+        <nav class="cart-bar" aria-label="เมนูลูกค้า">
+            <a href="/table-summary?session_id=<%= encodeURIComponent(sessionId) %>&user_id=<%= encodeURIComponent(userId) %>" class="table-summary-btn">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/><path d="M8 7h8M8 11h8"/></svg>
+                <span>สรุปโต๊ะ</span>
             </a>
-        </div>
+            <a href="/order-status?session_id=<%= encodeURIComponent(sessionId) %>&user_id=<%= encodeURIComponent(userId) %>" class="order-status-btn">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8v4l2.5 2.5"/><circle cx="12" cy="12" r="9"/><path d="M5 3 3 5M19 3l2 2"/></svg>
+                <span>ติดตาม</span>
+            </a>
+            <a href="/owner-summary?session_id=<%= encodeURIComponent(sessionId) %>&user_id=<%= encodeURIComponent(userId) %>" class="owner-summary-btn">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M20 8v6M23 11h-6"/></svg>
+                <span>ผู้รับผิดชอบ</span>
+            </a>
+            <a href="/cart?session_id=<%= encodeURIComponent(sessionId) %>&user_id=<%= encodeURIComponent(userId) %>" class="cart-btn">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h2l2.4 12.4A2 2 0 0 0 9.4 17h8.8a2 2 0 0 0 2-1.6L22 8H6"/><circle cx="10" cy="21" r="1"/><circle cx="19" cy="21" r="1"/></svg>
+                <span>ตะกร้า</span>
+            </a>
+        </nav>
     </div>
 
     <!-- Modal Popup Config เพิ่มลงตะกร้า -->
-    <div id="configModal" class="modal-overlay" onclick="closeModalOnOverlay(event)">
-        <div class="modal-card">
+    <div id="configModal" class="modal-overlay" onclick="closeModalOnOverlay(event)" aria-hidden="true">
+        <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
             <div class="modal-header">
                 <div>
                     <div id="modalTitle" class="modal-title">ชื่อเมนู</div>
                     <div id="modalPrice" class="modal-price">฿0</div>
                 </div>
-                <button type="button" class="btn-close" onclick="closeModal()">&times;</button>
+                <button type="button" class="btn-close" onclick="closeModal()" aria-label="ปิด">&times;</button>
             </div>
 
-            <img id="modalImg" src="" class="modal-img" alt="เมนูอาหาร">
+            <div id="modalImg" class="modal-img" role="img" aria-label="ภาพเมนูอาหาร"></div>
 
             <!-- ฟอร์มส่งข้อมูลไปยัง Backend -->
             <form action="/order/add" method="POST" id="orderForm">
@@ -100,9 +118,9 @@
                 <div class="config-group">
                     <span class="config-label" style="text-align: center; margin-bottom: 8px;">จำนวน</span>
                     <div class="qty-control">
-                        <button type="button" class="qty-btn" onclick="changeQty(-1)">-</button>
+                        <button type="button" class="qty-btn" onclick="changeQty(-1)" aria-label="ลดจำนวน">-</button>
                         <span id="modalQtyDisplay" class="qty-display">1</span>
-                        <button type="button" class="qty-btn" onclick="changeQty(1)">+</button>
+                        <button type="button" class="qty-btn" onclick="changeQty(1)" aria-label="เพิ่มจำนวน">+</button>
                     </div>
                 </div>
 
@@ -115,22 +133,17 @@
                     <div class="user-share-list">
                         <% if (typeof sessionUsers !=='undefined' && sessionUsers.length> 0) { %>
                             <% sessionUsers.forEach(function(u) { %>
-                                <label class="share-chip">
+                                <label class="owner-chip">
                                     <input type="checkbox" name="shared_user_ids[]" value="<%= u.user_id %>"
                                         class="user-share-checkbox" <% if (u.user_id==userId) { %>checked<% } %>>
-                                        <span class="share-chip-btn">
-                                            ✓ <%= u.name %>
-                                                <% if (u.user_id==userId) { %>(ฉัน)<% } %>
-                                        </span>
+                                    <span class="owner-chip-label"><%= u.name %><% if (u.user_id==userId) { %> (ฉัน)<% } %></span>
                                 </label>
                                 <% }); %>
                                     <% } else { %>
-                                        <label class="share-chip">
+                                        <label class="owner-chip">
                                             <input type="checkbox" name="shared_user_ids[]" value="<%= userId %>"
                                                 class="user-share-checkbox" checked>
-                                            <span class="share-chip-btn">
-                                                ✓ <%= user.name %> (ฉัน)
-                                            </span>
+                                            <span class="owner-chip-label"><%= user.name %> (ฉัน)</span>
                                         </label>
                                         <% } %>
                     </div>
@@ -149,36 +162,54 @@
                     ยืนยันเพิ่มลงตะกร้า - ฿<span id="modalTotalPrice">0</span>
                 </button>
             </form>
-        </div>
+        </section>
     </div>
 
     <!-- Modal Popup เพิ่มสมาชิกใหม่ในโต๊ะ -->
-    <div id="addUserModal" class="modal-overlay" onclick="closeAddUserModalOnOverlay(event)" style="z-index: 1001;">
-        <div class="modal-card" style="border-radius: 16px; margin: auto; max-width: 360px;">
+    <div id="addUserModal" class="modal-overlay add-user-overlay" onclick="closeAddUserModalOnOverlay(event)" aria-hidden="true">
+        <section class="modal-card add-user-card" role="dialog" aria-modal="true" aria-labelledby="addUserModalTitle">
             <div class="modal-header">
-                <div class="modal-title">เพิ่มคนในโต๊ะ</div>
-                <button type="button" class="btn-close" onclick="closeAddUserModal()">&times;</button>
+                <h2 class="modal-title" id="addUserModalTitle">เพิ่มคนในโต๊ะ</h2>
+                <button type="button" class="btn-close" onclick="closeAddUserModal()" aria-label="ปิด">&times;</button>
             </div>
-            <div style="margin-top: 10px;">
-                <label class="config-label" style="margin-bottom: 8px;">ชื่อเล่นสมาชิกใหม่</label>
+            <div class="add-user-field">
+                <label class="config-label" for="newUserNameInput">ชื่อเล่นสมาชิกใหม่</label>
                 <input type="text" id="newUserNameInput" class="note-input" placeholder="เช่น เพื่อน A, แม่"
                     onkeydown="if(event.key==='Enter'){ event.preventDefault(); submitAddUser(); }">
             </div>
-            <div style="display: flex; gap: 10px; margin-top: 20px;">
-                <button type="button" onclick="closeAddUserModal()"
-                    style="flex: 1; padding: 12px; border: 1px solid #ccc; background: #fff; border-radius: 8px; font-weight: bold; cursor: pointer;">ยกเลิก</button>
-                <button type="button" class="btn-confirm" onclick="submitAddUser()"
-                    style="flex: 1; padding: 12px;">บันทึก</button>
+            <div class="add-user-actions">
+                <button type="button" class="btn-cancel" onclick="closeAddUserModal()">ยกเลิก</button>
+                <button type="button" class="btn-confirm" onclick="submitAddUser()">บันทึก</button>
             </div>
-        </div>
+        </section>
     </div>
 
     <script>
         let currentPrice = 0;
         let currentQty = 1;
         const currentUserId = "<%= userId %>";
+        let modalReturnFocus = null;
+
+        document.querySelectorAll('.category-chip').forEach((chip) => {
+            chip.addEventListener('click', () => {
+                const categoryId = chip.dataset.categoryId;
+                let visibleCount = 0;
+                document.querySelectorAll('.menu-card').forEach((card) => {
+                    const isVisible = categoryId === 'all' || card.dataset.categoryId === categoryId;
+                    card.hidden = !isVisible;
+                    if (isVisible) visibleCount += 1;
+                });
+                document.querySelectorAll('.category-chip').forEach((option) => {
+                    const isActive = option === chip;
+                    option.classList.toggle('active', isActive);
+                    option.setAttribute('aria-pressed', String(isActive));
+                });
+                document.getElementById('menuFilterEmpty').hidden = visibleCount > 0;
+            });
+        });
 
         function openConfigModal(id, name, price, imgUrl) {
+            modalReturnFocus = document.activeElement;
             currentPrice = parseFloat(price);
             currentQty = 1;
 
@@ -194,21 +225,32 @@
             });
 
             // จัดการแสดงผลรูปภาพใน Modal
-            const imgEl = document.getElementById('modalImg');
+            const imageContainer = document.getElementById('modalImg');
             if (imgUrl && imgUrl !== '') {
-                imgEl.src = imgUrl;
-                imgEl.style.display = 'block';
+                const image = document.createElement('img');
+                image.src = imgUrl;
+                image.alt = name;
+                image.className = 'modal-img-content';
+                imageContainer.replaceChildren(image);
+                imageContainer.setAttribute('aria-label', name);
+                imageContainer.style.display = 'block';
             } else {
-                imgEl.style.display = 'none';
+                imageContainer.replaceChildren();
+                imageContainer.style.display = 'none';
             }
 
             updateQtyDisplay();
 
-            document.getElementById('configModal').classList.add('active');
+            const modal = document.getElementById('configModal');
+            modal.classList.add('active');
+            modal.setAttribute('aria-hidden', 'false');
         }
 
         function closeModal() {
-            document.getElementById('configModal').classList.remove('active');
+            const modal = document.getElementById('configModal');
+            modal.classList.remove('active');
+            modal.setAttribute('aria-hidden', 'true');
+            if (modalReturnFocus && typeof modalReturnFocus.focus === 'function') modalReturnFocus.focus();
         }
 
         function closeModalOnOverlay(event) {
@@ -233,13 +275,19 @@
 
         /* --- ฟังก์ชันสำหรับการเพิ่มสมาชิกใหม่ (User) --- */
         function openAddUserModal() {
+            modalReturnFocus = document.activeElement;
             document.getElementById('newUserNameInput').value = '';
-            document.getElementById('addUserModal').classList.add('active');
+            const modal = document.getElementById('addUserModal');
+            modal.classList.add('active');
+            modal.setAttribute('aria-hidden', 'false');
             setTimeout(() => document.getElementById('newUserNameInput').focus(), 100);
         }
 
         function closeAddUserModal() {
-            document.getElementById('addUserModal').classList.remove('active');
+            const modal = document.getElementById('addUserModal');
+            modal.classList.remove('active');
+            modal.setAttribute('aria-hidden', 'true');
+            if (modalReturnFocus && typeof modalReturnFocus.focus === 'function') modalReturnFocus.focus();
         }
 
         function closeAddUserModalOnOverlay(event) {
@@ -270,19 +318,21 @@
                 if (response.ok) {
                     const newUser = await response.json();
 
-                    // สร้าง Element ใหม่ของสมาชิกที่เพิ่งเพิ่ม
                     const shareList = document.querySelector('.user-share-list');
                     const newChip = document.createElement('label');
-                    newChip.className = 'share-chip';
-                    newChip.innerHTML = `
-                <input type="checkbox" name="shared_user_ids[]" value="${newUser.user_id}" class="user-share-checkbox">
-                <span class="share-chip-btn">✓ ${newUser.name}</span>
-            `;
+                    newChip.className = 'owner-chip';
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.name = 'shared_user_ids[]';
+                    checkbox.value = newUser.user_id;
+                    checkbox.className = 'user-share-checkbox';
+                    const chipText = document.createElement('span');
+                    chipText.className = 'owner-chip-label';
+                    chipText.textContent = newUser.name;
+                    newChip.append(checkbox, chipText);
 
-                    // เพิ่มเข้าไปในลิสต์คนหารทันที
                     shareList.appendChild(newChip);
 
-                    // ปิด Modal เพิ่มคน และล้างค่าช่องกรอก
                     nameInput.value = '';
                     closeAddUserModal();
                 } else {
@@ -293,6 +343,13 @@
                 alert('เกิดข้อผิดพลาดในการเชื่อมต่อ');
             }
         }
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key !== 'Escape') return;
+            const addUserModal = document.getElementById('addUserModal');
+            if (addUserModal.classList.contains('active')) closeAddUserModal();
+            else if (document.getElementById('configModal').classList.contains('active')) closeModal();
+        });
     </script>
 </body>
 
