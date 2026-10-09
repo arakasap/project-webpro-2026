@@ -5,15 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>สรุปรายการโต๊ะอาหาร - โต๊ะ <%= tableId %></title>
     <link rel="stylesheet" href="/css/cas-tab-detail.css">
-    <link rel="stylesheet" href="/css/staff-dark.css">
+    <link rel="stylesheet" href="/css/staff.css">
 </head>
 <body class="staff-ui staff-cashier">
     <header class="staff-topbar">
         <a class="staff-brand" href="/cashier">ไอทีม่วนแจ่ม <span>STAFF</span></a>
         <nav class="staff-nav" aria-label="เมนูพนักงาน">
-            <a class="active" href="/cashier">จัดการโต๊ะ</a>
-            <a href="/orders">รายการออร์เดอร์</a>
-            <a href="/kitchen">หน้าครัว</a>
         </nav>
     </header>
     <div class="summary-container">
@@ -69,7 +66,7 @@
             <!-- คอลัมน์ขวา: คำนวณยอดเงินและปุ่มชำระเงิน -->
             <section class="payment-section">
                 <div class="split-calculation-box">
-                    <div class="split-title">สรุปยอดแยกทาน</div>
+                    <div class="split-title">สรุปยอดคำสั่งซื้อ</div>
                     <% if (typeof splitDetails !== 'undefined' && splitDetails.length > 0) { %>
                         <% splitDetails.forEach(function(detail) { %>
                             <div class="calc-line">

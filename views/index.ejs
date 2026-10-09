@@ -12,12 +12,12 @@
 <body>
     <div class="container">
         <header class="customer-header home-header">
-            <a class="home-brand" href="/" aria-label="หน้าแรก <%= shopName %>"><%= shopName %><span>สั่งอาหารที่โต๊ะ</span></a>
+            <a class="home-brand"<%= shopName %>"><%= shopName %><span>สั่งอาหารที่โต๊ะ</span></a>
             <span class="customer-pill">โต๊ะ <%= sessionId %></span>
         </header>
 
         <% if (featuredItem && featuredItem.image_url) { %>
-            <section class="featured-food" aria-label="เมนูจากร้าน">
+            <section class="featured-food">
                 <img src="<%= featuredItem.image_url %>" alt="<%= featuredItem.name %>" class="featured-food-image" onerror="this.closest('.featured-food').hidden=true">
                 <div class="featured-food-copy">
                     <span>จากเมนูของร้าน</span>

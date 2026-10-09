@@ -9,116 +9,46 @@
     <link rel="stylesheet" href="/css/customer-summary-ui.css">
 </head>
 <body>
-    <main class="table-summary-page">
+    <main class="table-summary-page customer-summary-page">
         <header class="summary-page-header">
-            <a class="summary-back-link" href="/menu?session_id=<%= encodeURIComponent(sessionId) %>&user_id=<%= encodeURIComponent(user.user_id) %>">‹ กลับ</a>
+            <a class="summary-back-link" href="/menu?session_id=<%= encodeURIComponent(sessionId) %>&user_id=<%= encodeURIComponent(user.user_id) %>">‹ เมนู</a>
             <div class="summary-page-brand">
                 <h1>สรุปรายการโต๊ะ</h1>
             </div>
             <span class="customer-pill">โต๊ะ <%= tableNo %></span>
         </header>
 
-        <section class="summary-overview" aria-label="ยอดรวมรายการอาหาร">
-            <div class="summary-stat">
-                <span class="overview-label">จำนวนรายการ</span>
-                <strong><%= items.length %> <small>รายการ</small></strong>
-            </div>
-            <div class="summary-stat summary-stat-highlight">
-                <span class="overview-label">ยอดรวม</span>
-                <strong>฿<%= tableTotal.toLocaleString() %></strong>
-            </div>
-        </section>
+        <p class="table-total-line">ยอดรวมของโต๊ะ <strong>฿<%= Number(tableTotal || 0).toLocaleString(undefined, { maximumFractionDigits: 2 }) %></strong></p>
 
         <% if (typeof splitDetails !== 'undefined' && splitDetails.length > 0) { %>
-            <section class="summary-split" aria-label="สรุปยอดแยกตามบุคคล">
-                <div class="section-heading">
-                    <h2>แยกตามบุคคลที่สั่ง</h2>
-                    <span><%= splitDetails.length %> คน</span>
-                </div>
+            <div class="payer-sections" aria-label="สรุปว่าใครจ่ายค่าอะไรบ้าง">
                 <% splitDetails.forEach((detail) => { %>
-                    <div class="split-row">
-                        <div class="split-person">
-                            <span class="split-avatar" aria-hidden="true"><%= String(detail.name || 'N').charAt(0) %></span>
-                            <strong><%= detail.name %></strong>
-                        </div>
-                        <span class="split-total">฿<%= Number(detail.total || 0).toLocaleString(undefined, { maximumFractionDigits: 0 }) %></span>
-                    </div>
+                    <section class="payer-section" aria-label="รายการของ <%= detail.name %>">
+                        <header class="payer-section-heading">
+                            <h2><%= detail.name %></h2>
+                            <strong>฿<%= Number(detail.total || 0).toLocaleString(undefined, { maximumFractionDigits: 2 }) %></strong>
+                        </header>
+                        <% if (detail.items.length > 0) { %>
+                            <ul class="payer-item-list">
+                                <% detail.items.forEach((item) => { %>
+                                    <li class="payer-item-row">
+                                        <span><%= item.name %> <small>× <%= item.qty %></small></span>
+                                        <strong>฿<%= Number(item.share || 0).toLocaleString(undefined, { maximumFractionDigits: 2 }) %></strong>
+                                    </li>
+                                <% }); %>
+                            </ul>
+                        <% } else { %>
+                            <p class="payer-empty">ยังไม่มีรายการที่ต้องชำระ</p>
+                        <% } %>
+                    </section>
                 <% }); %>
-            </section>
+            </div>
         <% } %>
 
-        <% if (items.length > 0) { %>
-            <section class="summary-list" aria-label="รายการอาหารทั้งหมด">
-                <% items.forEach((item) => {
-                    const statusMap = {
-                        pending: { label: 'รอยืนยัน', className: 'pending' },
-                        ordered: { label: 'ส่งเข้าครัวแล้ว', className: 'ordered' },
-                        cooking: { label: 'กำลังทำ', className: 'cooking' },
-                        ready: { label: 'รอเสิร์ฟ', className: 'ready' },
-                        served: { label: 'เสิร์ฟแล้ว', className: 'served' },
-                        cancelled: { label: 'ยกเลิก', className: 'cancelled' }
-                    };
-                    const status = statusMap[String(item.status).toLowerCase()] || { label: item.status, className: 'pending' };
-                    const lineTotal = (Number(item.price) || 0) * (Number(item.qty) || 0);
-                    const ownerNames = Array.isArray(item.owner_names) ? item.owner_names : [item.owner_names].filter(Boolean);
-                    const splitCount = Math.max(ownerNames.length, 1);
-                    const itemPriceText = item.status === 'cancelled' ? 'ไม่นับยอด' : `฿${lineTotal.toLocaleString()}`;
-                %>
-                    <article class="summary-item">
-                        <div class="summary-item-image">
-                            <% if (item.image_url) { %>
-                                <img src="<%= item.image_url %>" alt="<%= item.name %>" loading="lazy" onerror="this.hidden=true; this.nextElementSibling.hidden=false">
-                                <span hidden aria-hidden="true">🍽️</span>
-                            <% } else { %>
-                                <span aria-hidden="true">🍽️</span>
-                            <% } %>
-                        </div>
-                        <div class="summary-item-content">
-                            <div class="summary-item-top">
-                                <div class="summary-item-title-wrap">
-                                    <h2><%= item.name %></h2>
-                                    <p class="summary-item-meta-line">
-                                        <span>จำนวน <%= item.qty %> จาน</span>
-                                        <span class="meta-dot"></span>
-                                        <span>
-                                            <% if (ownerNames.length > 0) { %>
-                                                ผู้รับผิดชอบ <%= ownerNames.join(', ') %>
-                                            <% } else { %>
-                                                ทานร่วมกันทุกคน
-                                            <% } %>
-                                        </span>
-                                    </p>
-                                </div>
-                                <span class="summary-status <%= status.className %>"><%= status.label %></span>
-                            </div>
-
-                            <div class="summary-item-bottom">
-                                <div class="summary-item-owners">
-                                    <% if (ownerNames.length > 0) { %>
-                                        <% ownerNames.forEach((ownerName) => { %>
-                                            <span class="owner-tag"><%= ownerName %></span>
-                                        <% }); %>
-                                    <% } else { %>
-                                        <span class="owner-tag shared-tag">ทานร่วม</span>
-                                    <% } %>
-                                </div>
-                                <div class="summary-item-price <%= item.status === 'cancelled' ? 'is-cancelled' : '' %>"><%= itemPriceText %></div>
-                            </div>
-
-                            <div class="summary-item-footer">
-                                <div class="summary-item-meta">เฉลี่ยคนละ <%= Number((lineTotal / splitCount) || 0).toFixed(2) %>.-</div>
-                                <% if (item.note) { %><p class="summary-item-note">หมายเหตุ: <%= item.note %></p><% } %>
-                                <% if (item.status === 'cancelled' && item.cancel_reason) { %><p class="summary-cancel-note">เหตุผลยกเลิก: <%= item.cancel_reason %></p><% } %>
-                            </div>
-                        </div>
-                    </article>
-                <% }); %>
-            </section>
-        <% } else { %>
+        <% if (items.length === 0) { %>
             <section class="summary-empty">
-                <span aria-hidden="true">—</span>
                 <h2>ยังไม่มีรายการอาหาร</h2>
-                <p>รายการที่ยืนยันแล้วของโต๊ะนี้จะแสดงที่นี่</p>
+                <p>รายละเอียดการชำระจะแสดงเมื่อมีรายการอาหารในโต๊ะนี้</p>
             </section>
         <% } %>
 

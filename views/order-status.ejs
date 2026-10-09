@@ -83,8 +83,7 @@
         <% } %>
 
         <footer class="status-footer">
-            <span class="live-dot"></span>
-            <span>ตรวจสอบสถานะอัตโนมัติทุก <b id="refresh-countdown">15</b> วินาที</span>
+            <span>แสดงสถานะล่าสุด ณ เวลาที่เปิดหน้านี้</span>
         </footer>
 
     </main>
@@ -161,13 +160,6 @@
             }
         }
 
-        let secondsLeft = 15;
-        const countdown = document.getElementById('refresh-countdown');
-        window.setInterval(() => {
-            secondsLeft -= 1;
-            if (countdown) countdown.textContent = String(secondsLeft);
-            if (secondsLeft <= 0) window.location.reload();
-        }, 1000);
     </script>
 </body>
 </html>

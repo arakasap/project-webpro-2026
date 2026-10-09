@@ -269,13 +269,13 @@
             * { transition: none !important; }
         }
     </style>
-    <link rel="stylesheet" href="/css/staff-dark.css">
+    <link rel="stylesheet" href="/css/staff.css">
 </head>
 <body class="staff-ui staff-kitchen">
 <nav class="sidebar">
     <a class="staff-brand-link" href="/kitchen">ไอทีม่วนแจ่ม <span>STAFF</span></a>
-    <a href="/kitchen" class="<%= page === 'kitchen' ? 'active' : '' %>">ครัว</a>
-    <a href="/kitchen/ordered" class="<%= page === 'ordered' ? 'active' : '' %>">ออเดอร์ที่ต้องทำ</a>
+    <a href="/kitchen" class="<%= page === 'kitchen' ? 'active' : '' %>">ดูรายละเอียด</a>
+    <a href="/kitchen/orders" class="<%= page === 'orders' ? 'active' : '' %>">ออเดอร์ที่ต้องทำ</a>
     <a href="/kitchen/status" class="<%= page === 'status' ? 'active' : '' %>">อัพเดทสถานะ</a>
 </nav>
 <div class="kitchen-container">
@@ -284,7 +284,6 @@
         <a class="back-link" href="<%= backUrl %>">‹ <%= backText %></a>
     </header>
 
-    <div id="offline" hidden>ขาดการเชื่อมต่อ กำลังลองใหม่...</div>
     <main id="content">
         <% if (msg === 'invalid') { %>
             <div class="alert">ข้อมูลไม่ถูกต้อง</div>
@@ -331,11 +330,6 @@
                             <% } %>
                         </div>
                         <div class="dish-actions">
-                            <form method="POST" action="/kitchen/item/<%= item.order_item_id %>/status" onsubmit="return busySubmit(this, 'กำลังบันทึก...');">
-                                <input type="hidden" name="to" value="ready">
-                                <input type="hidden" name="table_id" value="<%= table.table_id %>">
-                                <button type="submit" class="btn-done">ปรุงเสร็จ</button>
-                            </form>
                             <form method="POST" action="/kitchen/item/<%= item.order_item_id %>/status" onsubmit="return askReason(this);">
                                 <input type="hidden" name="to" value="cancelled">
                                 <input type="hidden" name="table_id" value="<%= table.table_id %>">
@@ -373,12 +367,6 @@
                                 <input type="hidden" name="to" value="cooking">
                                 <input type="hidden" name="table_id" value="<%= table.table_id %>">
                                 <button type="submit" class="btn-back-step">ย้อนกลับ</button>
-                            </form>
-                            <form method="POST" action="/kitchen/item/<%= item.order_item_id %>/status" onsubmit="return askReason(this);">
-                                <input type="hidden" name="to" value="cancelled">
-                                <input type="hidden" name="table_id" value="<%= table.table_id %>">
-                                <input type="hidden" name="reason" value="">
-                                <button type="submit" class="btn-cancel">ยกเลิก</button>
                             </form>
                         </div>
                     </div>
@@ -449,20 +437,6 @@
             history.replaceState(null, '', location.pathname + (q ? '?' + q : ''));
         }
     })();
-    setInterval(async () => {
-        if (document.hidden) return;
-        const y = window.scrollY;
-        try {
-            const res = await fetch(location.href, { cache: 'no-store' });
-            if (!res.ok) throw new Error('bad status');
-            const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
-            document.getElementById('content').innerHTML = doc.getElementById('content').innerHTML;
-            document.getElementById('offline').hidden = true;
-            window.scrollTo(0, y);
-        } catch (e) {
-            document.getElementById('offline').hidden = false;
-        }
-    }, 4000);
 </script>
 </body>
 </html>

@@ -68,6 +68,7 @@
             padding: 18px;
             box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
             transition: transform 0.15s ease-out, border-color 0.15s ease-out;
+            max-width: 500px;
         }
         .order-card:hover {
             transform: translateY(-2px);
@@ -87,6 +88,15 @@
             padding-bottom: 10px;
             margin-bottom: 10px;
         }
+        .bill-meta { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+        .bill-sequence, .status-order-ref {
+            flex: 0 0 auto;
+            color: #64748b;
+            font-size: 0.75rem;
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
+        .bill-sequence { padding: 2px 6px; border: 1px solid #e2e8f0; border-radius: 4px; }
         .table-name { font-size: 1.45rem; font-weight: bold; color: #0f172a; }
         .order-time { font-size: 0.95rem; color: #64748b; white-space: nowrap; }
         .dish { padding: 7px 0; font-size: 1.15rem; }
@@ -143,10 +153,10 @@
         .btn-accept:disabled { background-color: #94a3b8; cursor: default; box-shadow: none; }
         .btn-link {
             display: block;
+            padding: 0px;
             text-align: center;
             margin-top: 12px;
             min-height: 48px;
-            line-height: 48px;
             font-size: 1.15rem;
             font-weight: bold;
             color: #ffffff;
@@ -296,6 +306,111 @@
             font-size: 1rem;
             color: #64748b;
         }
+        .card-grid.status-table-list { grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); }
+        .status-table-card { min-width: 0; }
+        .status-table-heading {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .status-table-heading .table-name { margin: 0; }
+        .status-table-open-count { color: #526257; font-size: 0.85rem; font-weight: 600; }
+        .table-status-summary {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 7px;
+            margin-bottom: 16px;
+        }
+        .table-status-summary button {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            min-height: 34px;
+            padding: 5px 10px;
+            border: 1px solid transparent;
+            border-radius: 6px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .table-status-summary button span { font-variant-numeric: tabular-nums; }
+        .table-status-summary .ordered { border-color: #f3dfa0; color: #92400e; background: #fef3c7; }
+        .table-status-summary .cooking { border-color: #fed7aa; color: #9a3412; background: #ffedd5; }
+        .table-status-summary .ready { border-color: #bae6fd; color: #075985; background: #e0f2fe; }
+        .table-status-summary button:hover { filter: brightness(0.96); }
+        .status-group { scroll-margin-top: 16px; }
+        .status-group + .status-group { margin-top: 18px; }
+        .status-group-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 12px;
+            margin: 0 0 8px;
+            padding-bottom: 7px;
+            border-bottom: 1px solid #e2e8f0;
+            color: #334155;
+            font-size: 1rem;
+        }
+        .status-history-group {
+            padding-top: 12px;
+            border-top: 1px solid #e6ece7;
+        }
+        .status-history-group > summary { cursor: pointer; list-style: none; }
+        .status-history-group > summary::-webkit-details-marker { display: none; }
+        .status-history-group > summary::before {
+            width: 7px;
+            height: 7px;
+            flex: 0 0 7px;
+            margin: 0 4px 0 2px;
+            border-right: 2px solid currentColor;
+            border-bottom: 2px solid currentColor;
+            content: "";
+            transform: rotate(-45deg);
+        }
+        .status-history-group[open] > summary::before { transform: rotate(45deg); }
+        .status-history-group > summary:focus-visible {
+            outline: 3px solid rgba(22, 101, 52, 0.45);
+            outline-offset: 3px;
+        }
+        .status-history-group .status-group-title { margin-bottom: 0; }
+        .status-history-group[open] .status-group-title { margin-bottom: 8px; }
+        .status-group-title small { color: #64748b; font-size: 0.85rem; }
+        .status-group-items { display: grid; gap: 10px; }
+        .status-dish-card { min-width: 0; padding: 12px 0; border-bottom: 1px solid #edf1ee; }
+        .status-dish-card:last-child { border-bottom: 0; }
+        .status-dish-title {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .status-dish-title strong { min-width: 0; overflow-wrap: anywhere; }
+        .status-dish-content .wait { display: block; margin-top: 8px; }
+        .status-dish-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .status-dish-actions form { margin: 0; }
+        .status-dish-actions button { min-height: 42px; }
+        #status-feedback {
+            margin-bottom: 14px;
+            padding: 10px 12px;
+            border: 1px solid #efc4c1;
+            border-radius: 6px;
+            color: #7f1d1d;
+            background: #fff1f0;
+            font-size: 0.9rem;
+        }
+        @media (max-width: 520px) {
+            .status-dish-title { flex-direction: column; gap: 6px; }
+            .status-dish-actions { display: grid; grid-template-columns: 1fr; }
+            .status-dish-actions form,
+            .status-dish-actions button { width: 100%; }
+        }
         /* โฟกัสคีย์บอร์ดต้องเห็นชัด + เคารพ reduced motion */
         a:focus-visible, button:focus-visible {
             outline: 3px solid #2563eb;
@@ -305,10 +420,16 @@
             * { transition: none !important; }
         }
     </style>
-    <link rel="stylesheet" href="/css/staff-dark.css">
+    <link rel="stylesheet" href="/css/staff.css">
 </head>
 <body class="staff-ui staff-kitchen">
 
+<nav class="sidebar">
+    <a class="staff-brand-link" href="/kitchen">ไอทีม่วนแจ่ม <span>STAFF</span></a>
+    <a href="/kitchen" class="<%= page === 'kitchen' ? 'active' : '' %>">ดูรายละเอียด</a>
+    <a href="/kitchen/orders" class="<%= page === 'orders' ? 'active' : '' %>">ออเดอร์ที่ต้องทำ</a>
+    <a href="/kitchen/status" class="<%= page === 'status' ? 'active' : '' %>">อัพเดทสถานะ</a>
+</nav>
 <div class="kitchen-container">
     <header class="kitchen-header">
         <h1><%= title %></h1>
@@ -316,13 +437,17 @@
             <p class="count-line">ทั้งหมด <%= bills.length %> บิล</p>
         <% } else if (mode === 'ordered') { %>
             <p class="count-line">ทั้งหมด <%= dishes.length %> จาน</p>
+        <% } else if (mode === 'status') { %>
+            <p class="count-line">ทั้งหมด <%= dishes.length %> รายการอาหาร</p>
         <% } else { %>
             <p class="count-line">ทั้งหมด <%= tables.length %> โต๊ะ</p>
         <% } %>
     </header>
 
-    <div id="offline" hidden>ขาดการเชื่อมต่อ กำลังลองใหม่...</div>
     <main id="content">
+        <% if (mode === 'status') { %>
+            <div id="status-feedback" role="status" aria-live="polite" hidden></div>
+        <% } %>
         <% const isServer = (mode === 'server'); %>
         <% if (msg === 'taken') { %>
             <div class="alert">มีคนรับรายการนี้ไปแล้ว</div>
@@ -339,7 +464,10 @@
                         <section class="order-card<%= b.action === 'accept' ? ' acc-new' : '' %><%= b.action === 'update' ? ' acc-cook' : '' %><%= b.action === 'serve' ? ' acc-serve' : '' %><%= b.action === 'none' ? ' cancelled' : '' %>">
                             <div class="card-head">
                                 <span class="table-name">โต๊ะ <%= b.table_number %><% if (b.hasNew) { %><span class="badge-new">ใหม่</span><% } %><% if (b.action === 'update') { %><span class="badge-cooking">กำลังปรุง</span><% } %><% if (b.action === 'serve') { %><span class="badge-ready">พร้อมเสิร์ฟ</span><% } %><% if (b.action === 'none') { %><span class="badge-cancelled">ยกเลิกแล้ว</span><% } %></span>
-                                <span class="order-time">#<%= bills.length - i %> · <%= b.firstTimeTh %> น. <span class="wait<%= b.maxWait > 10 ? ' wait-over' : '' %>">(รอ <%= b.maxWait %> นาที)</span></span>
+                                <span class="bill-meta">
+                                    <span class="order-time"><%= b.firstTimeTh %> น. <span class="wait<%= b.maxWait > 10 ? ' wait-over' : '' %>">(รอ <%= b.maxWait %> นาที)</span></span>
+                                    <span class="bill-sequence">#<%= bills.length - i %></span>
+                                </span>
                             </div>
                             <% b.items.forEach(function(item) { %>
                                 <div class="dish">
@@ -380,7 +508,7 @@
                     <% }); %>
                 </div>
             <% } else { %>
-                <div class="empty-state">ไม่มีออเดอร์ใหม่<small>บิลที่ลูกค้ากดส่งจะขึ้นที่นี่เอง ไม่ต้องกดรีเฟรช</small></div>
+                <div class="empty-state">ไม่มีออเดอร์ใหม่<small>รีเฟรชหน้านี้เพื่อตรวจสอบออร์เดอร์ล่าสุด</small></div>
             <% } %>
         <% } %>
 
@@ -390,7 +518,7 @@
                     <% dishes.forEach(function(d) { %>
                         <section class="order-card">
                             <div class="card-head">
-                                <span class="table-name">โต๊ะ <%= d.table_number %></span>
+                                <span class="table-name">ออร์เดอร์ #<%= d.order_item_id %> · โต๊ะ <%= d.table_number %></span>
                                 <span class="order-time"><%= d.timeTh %> น.</span>
                             </div>
                             <div class="dish">
@@ -410,6 +538,125 @@
                 </div>
             <% } else { %>
                 <div class="empty-state">ไม่มีออเดอร์ที่ต้องทำ<small>จานที่กดรับแล้วจะมาอยู่ที่นี่</small></div>
+            <% } %>
+        <% } %>
+
+        <% if (mode === 'status') { %>
+            <% if (tableGroups.length > 0) { %>
+                <p class="status-scroll-hint">ปัดหรือเลื่อนซ้าย–ขวาเพื่อดูโต๊ะอื่น</p>
+                <div class="card-grid status-table-list" aria-label="รายการสถานะแยกตามโต๊ะ">
+                    <% tableGroups.forEach(function(tableGroup) { %>
+                        <% const statusMeta = {
+                            ordered: { label: 'รอรับ', className: 'ordered' },
+                            cooking: { label: 'กำลังปรุง', className: 'cooking' },
+                            ready: { label: 'พร้อมเสิร์ฟ', className: 'ready' },
+                            served: { label: 'เสิร์ฟแล้ว', className: 'served' },
+                            cancelled: { label: 'ยกเลิกแล้ว', className: 'cancelled' }
+                        }; %>
+                        <% const activeItems = tableGroup.items.filter(function(item) { return ['ordered', 'cooking', 'ready'].includes(item.status); }).length; %>
+                        <section class="order-card status-table-card" id="table-status-<%= tableGroup.table_id %>">
+                            <div class="status-table-heading">
+                                <h2 class="table-name">โต๊ะ <%= tableGroup.table_number %></h2>
+                                <span class="status-table-open-count"><%= activeItems %> รายการที่ยังไม่เสร็จ</span>
+                            </div>
+                            <nav class="table-status-summary" aria-label="สรุปสถานะโต๊ะ <%= tableGroup.table_number %>">
+                                <% ['ordered', 'cooking', 'ready'].forEach(function(statusKey) {
+                                    const status = statusMeta[statusKey];
+                                    const count = tableGroup.items.filter(function(item) { return item.status === statusKey; }).length;
+                                %>
+                                    <% if (count > 0) { %>
+                                        <button type="button" class="<%= status.className %>" data-scroll-target="table-<%= tableGroup.table_id %>-<%= statusKey %>">
+                                            <%= status.label %><span><%= count %></span>
+                                        </button>
+                                    <% } %>
+                                <% }); %>
+                            </nav>
+                            <% ['ordered', 'cooking', 'ready', 'served', 'cancelled'].forEach(function(statusKey) {
+                                const status = statusMeta[statusKey];
+                                const statusItems = tableGroup.items.filter(function(item) { return item.status === statusKey; });
+                            %>
+                                <% if (statusItems.length > 0) { %>
+                                    <% if (['served', 'cancelled'].includes(statusKey)) { %>
+                                    <details class="status-group status-history-group status-<%= statusKey %>">
+                                        <summary class="status-group-title">
+                                            <span><%= status.label %></span>
+                                            <small><%= statusItems.length %> รายการ · แตะเพื่อดู</small>
+                                        </summary>
+                                    <% } else { %>
+                                    <section class="status-group status-<%= statusKey %>" id="table-<%= tableGroup.table_id %>-<%= statusKey %>">
+                                        <h3 class="status-group-title">
+                                            <span><%= status.label %></span>
+                                            <small><%= statusItems.length %> รายการ</small>
+                                        </h3>
+                                    <% } %>
+                                        <div class="status-group-items">
+                                            <% statusItems.forEach(function(dish) { %>
+                                                <article class="status-dish-card">
+                                                    <div class="card-head">
+                                                        <span class="order-time"><%= dish.timeTh %> น.</span>
+                                                        <span class="status-order-ref">#<%= dish.order_item_id %></span>
+                                                    </div>
+                                                    <div class="dish status-dish-content">
+                                                        <div class="status-dish-title">
+                                                            <strong><%= dish.qty %>× <%= dish.name %></strong>
+                                                        </div>
+                                                        <% if (dish.note) { %>
+                                                            <span class="dish-note">หมายเหตุ: <%= dish.note %></span>
+                                                        <% } %>
+                                                        <% if (dish.status === 'cancelled' && dish.cancel_reason) { %>
+                                                            <span class="cancel-note">เหตุผลที่ยกเลิก: <%= dish.cancel_reason %></span>
+                                                        <% } %>
+                                                        <% if (['ordered', 'cooking', 'ready'].includes(dish.status)) { %>
+                                                            <span class="wait<%= dish.waitMin > 10 ? ' wait-over' : '' %>">รอ <%= dish.waitMin %> นาที</span>
+                                                        <% } %>
+                                                    </div>
+                                                    <% if (dish.status === 'cooking') { %>
+                                                        <div class="status-dish-actions">
+                                                            <form method="POST" action="/kitchen/item/<%= dish.order_item_id %>/status" data-async-status onsubmit="return busySubmit(this, 'กำลังย้อนกลับ...');">
+                                                                <input type="hidden" name="to" value="ordered">
+                                                                <input type="hidden" name="table_id" value="<%= dish.table_id %>">
+                                                                <input type="hidden" name="back" value="/kitchen/status">
+                                                                <button type="submit" class="btn-back-step">ย้อนกลับไปรอรับ</button>
+                                                            </form>
+                                                            <form method="POST" action="/kitchen/item/<%= dish.order_item_id %>/status" data-async-status onsubmit="return askReason(this);">
+                                                                <input type="hidden" name="to" value="cancelled">
+                                                                <input type="hidden" name="table_id" value="<%= dish.table_id %>">
+                                                                <input type="hidden" name="back" value="/kitchen/status">
+                                                                <input type="hidden" name="reason" value="">
+                                                                <button type="submit" class="btn-cancel">ยกเลิก</button>
+                                                            </form>
+                                                        </div>
+                                                    <% } else if (dish.status === 'ready') { %>
+                                                        <div class="status-dish-actions">
+                                                            <form method="POST" action="/kitchen/item/<%= dish.order_item_id %>/status" data-async-status onsubmit="return busySubmit(this, 'กำลังบันทึก...');">
+                                                                <input type="hidden" name="to" value="served">
+                                                                <input type="hidden" name="table_id" value="<%= dish.table_id %>">
+                                                                <input type="hidden" name="back" value="/kitchen/status">
+                                                                <button type="submit" class="btn-serve">เสิร์ฟแล้ว</button>
+                                                            </form>
+                                                            <form method="POST" action="/kitchen/item/<%= dish.order_item_id %>/status" data-async-status onsubmit="return busySubmit(this, 'กำลังย้อนกลับ...');">
+                                                                <input type="hidden" name="to" value="cooking">
+                                                                <input type="hidden" name="table_id" value="<%= dish.table_id %>">
+                                                                <input type="hidden" name="back" value="/kitchen/status">
+                                                                <button type="submit" class="btn-back-step">ย้อนกลับไปกำลังปรุง</button>
+                                                            </form>
+                                                        </div>
+                                                    <% } %>
+                                                </article>
+                                            <% }); %>
+                                        </div>
+                                    <% if (['served', 'cancelled'].includes(statusKey)) { %>
+                                    </details>
+                                    <% } else { %>
+                                    </section>
+                                    <% } %>
+                                <% } %>
+                            <% }); %>
+                        </section>
+                    <% }); %>
+                </div>
+            <% } else { %>
+                <div class="empty-state">ไม่มีรายการอาหารให้แสดง</div>
             <% } %>
         <% } %>
 
@@ -433,9 +680,94 @@
     // กดปุ่มแล้วล็อกกันกดซ้ำ + เปลี่ยนข้อความว่ากำลังทำ
     function busySubmit(f, text) {
         const b = f.querySelector('[type=submit]');
-        if (b) { b.disabled = true; b.textContent = text; }
+        if (b) {
+            b.dataset.idleLabel = b.dataset.idleLabel || b.textContent;
+            b.disabled = true;
+            b.textContent = text;
+        }
         return true;
     }
+        function askReason(f) {
+            const reason = prompt('เหตุผลที่ยกเลิก:');
+            if (!reason || !reason.trim()) return false;
+            f.reason.value = reason.trim();
+            return busySubmit(f, 'กำลังยกเลิก...');
+        }
+    async function refreshStatusView(tableCardId, previousTop) {
+        const response = await fetch(window.location.pathname + window.location.search, {
+            headers: { Accept: 'text/html' }
+        });
+        if (!response.ok) throw new Error('บันทึกแล้ว แต่โหลดรายการล่าสุดไม่สำเร็จ กรุณารีเฟรชหน้า');
+        const html = await response.text();
+        const nextDocument = new DOMParser().parseFromString(html, 'text/html');
+        const currentMain = document.getElementById('content');
+        const nextMain = nextDocument.getElementById('content');
+        if (!currentMain || !nextMain) throw new Error('บันทึกแล้ว แต่โหลดรายการล่าสุดไม่สำเร็จ กรุณารีเฟรชหน้า');
+
+        currentMain.replaceWith(nextMain);
+        const nextCountLine = nextDocument.querySelector('.kitchen-header .count-line');
+        const currentCountLine = document.querySelector('.kitchen-header .count-line');
+        if (nextCountLine && currentCountLine) currentCountLine.replaceWith(nextCountLine);
+        if (tableCardId && previousTop !== null) {
+            const refreshedCard = document.getElementById(tableCardId);
+            if (refreshedCard) window.scrollBy(0, refreshedCard.getBoundingClientRect().top - previousTop);
+        }
+        return document.getElementById('status-feedback');
+    }
+    document.addEventListener('click', function (event) {
+        const button = event.target.closest('[data-scroll-target]');
+        if (!button) return;
+        const section = document.getElementById(button.dataset.scrollTarget);
+        if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    document.addEventListener('submit', async function (event) {
+        const form = event.target.closest('form[data-async-status]');
+        if (!form) return;
+        event.preventDefault();
+
+        const button = form.querySelector('[type=submit]');
+        const idleLabel = button ? (button.dataset.idleLabel || button.textContent) : '';
+        const tableCard = form.closest('.status-table-card');
+        const tableCardId = tableCard ? tableCard.id : '';
+        const previousTop = tableCard ? tableCard.getBoundingClientRect().top : null;
+
+        try {
+            const response = await fetch(form.action, {
+                method: 'POST',
+                body: new URLSearchParams(new FormData(form)),
+                headers: { Accept: 'application/json' }
+            });
+            const result = await response.json();
+            if (!response.ok) {
+                if (response.status === 409) {
+                    const feedback = await refreshStatusView(tableCardId, previousTop);
+                    if (feedback) {
+                        feedback.textContent = 'รายการนี้ถูกเปลี่ยนสถานะไปแล้ว ข้อมูลล่าสุดถูกโหลดแล้ว';
+                        feedback.hidden = false;
+                    }
+                    return;
+                }
+                const messages = {
+                    invalid: 'ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบแล้วลองอีกครั้ง'
+                };
+                throw new Error(messages[result.error] || 'บันทึกสถานะไม่สำเร็จ กรุณาลองอีกครั้ง');
+            }
+
+            await refreshStatusView(tableCardId, previousTop);
+        } catch (error) {
+            if (button) {
+                button.disabled = false;
+                button.textContent = idleLabel;
+            }
+            const feedback = document.getElementById('status-feedback');
+            if (feedback) {
+                feedback.textContent = error.message;
+                feedback.hidden = false;
+            } else {
+                alert(error.message);
+            }
+        }
+    });
     (function () {
         const p = new URLSearchParams(location.search);
         if (p.has('msg')) {
@@ -444,20 +776,6 @@
             history.replaceState(null, '', location.pathname + (q ? '?' + q : ''));
         }
     })();
-    setInterval(async () => {
-        if (document.hidden) return;
-        const y = window.scrollY;
-        try {
-            const res = await fetch(location.href, { cache: 'no-store' });
-            if (!res.ok) throw new Error('bad status');
-            const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
-            document.getElementById('content').innerHTML = doc.getElementById('content').innerHTML;
-            document.getElementById('offline').hidden = true;
-            window.scrollTo(0, y);
-        } catch (e) {
-            document.getElementById('offline').hidden = false;
-        }
-    }, 4000);
 </script>
 </body>
 </html>

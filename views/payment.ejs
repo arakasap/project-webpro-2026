@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= paymentMode === 'combined' ? 'ชำระเงินรวมทั้งโต๊ะ' : 'ชำระเงินแยกตามผู้รับผิดชอบ' %></title>
     <link rel="stylesheet" href="/css/payment.css">
-    <link rel="stylesheet" href="/css/staff-dark.css">
+    <link rel="stylesheet" href="/css/staff.css">
 </head>
 <body class="staff-ui staff-cashier">
     <header class="staff-topbar">
@@ -96,6 +96,7 @@
 
                 
                 <form action="/cashier/table/<%= tableId %>/finish-payment" method="POST" style="display:inline;">
+                    <input type="hidden" name="paymentMode" value="<%= paymentMode %>">
                     <button type="submit" class="btn-done">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
                         เสร็จสิ้น (Done)
