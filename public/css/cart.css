@@ -18,12 +18,6 @@
     --radius-md: 12px;
 }
 
-* {
-    box-sizing: border-box;
-    font-family: 'Noto Sans Thai', sans-serif;
-    -webkit-tap-highlight-color: transparent;
-}
-
 body {
     display: flex;
     justify-content: center;

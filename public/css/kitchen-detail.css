@@ -1,0 +1,206 @@
+
+
+        /* แท็บด้านข้างชุดเดียวกับหน้าครัว */
+
+
+
+
+        .kitchen-container { max-width: 800px; margin: 0 auto 0 210px; }
+        @media (max-width: 700px) {
+
+
+
+        }
+
+        .kitchen-header h1 { margin: 0 0 12px 0; font-size: 2rem; color: #0f172a; letter-spacing: 0.5px; text-wrap: balance; }
+        .back-link {
+            display: inline-block;
+            min-height: 48px;
+            line-height: 48px;
+            padding: 0 22px;
+            background-color: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            text-decoration: none;
+            color: #334155;
+            font-size: 1.1rem;
+            font-weight: bold;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+            transition: transform 0.1s ease-out;
+        }
+        .back-link:active { transform: scale(0.98); }
+
+
+        .section-title {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #ffffff;
+            margin: 22px 0 12px 0;
+            padding: 10px 14px;
+            border-radius: 12px;
+            letter-spacing: 0.5px;
+        }
+        /* สีแถบแยกตามกองงาน */
+        .sec-ordered { background-color: #b45309; }
+        .sec-cooking { background-color: #16a34a; }
+        .sec-ready { background-color: #2563eb; }
+        .sec-served { background-color: #0284c7; }
+        .sec-cancelled { background-color: #dc2626; }
+        .dish-card {
+            background-color: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 18px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+        }
+        .dish-card.ready { background-color: #f5f9ff; }
+        .dish-card.cancelled { background-color: #fef2f2; border: 1px solid #fca5a5; }
+        .dish-card.served { opacity: 0.8; background-color: #f0fdf4; }
+        .badge-served {
+            display: inline-block;
+            font-size: 0.95rem;
+            font-weight: bold;
+            color: #ffffff;
+            background-color: #0284c7;
+            border-radius: 20px;
+            padding: 5px 13px;
+            margin-left: 8px;
+            box-shadow: 0 2px 6px rgba(2, 132, 199, 0.35);
+        }
+        .dish-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+        .dish-info { font-size: 1.2rem; }
+        .dish-time { font-size: 0.95rem; color: #64748b; }
+        .dish-note {
+            display: block;
+            color: #dc2626;
+            font-style: italic;
+            font-size: 1rem;
+            word-break: break-word;
+            margin-top: 6px;
+            background-color: #fef2f2;
+            border-radius: 8px;
+            padding: 4px 8px;
+        }
+        .cancel-note {
+            display: block;
+            color: #991b1b;
+            font-weight: bold;
+            font-size: 1rem;
+            word-break: break-word;
+            margin-top: 4px;
+        }
+        .badge-wait {
+            display: inline-block;
+            font-size: 0.95rem;
+            font-weight: bold;
+            color: #166534;
+            background-color: #dcfce7;
+            border-radius: 20px;
+            padding: 4px 12px;
+            margin-left: 8px;
+        }
+
+
+        .dish-actions { display: flex; flex-direction: column; gap: 8px; }
+        .btn-accept {
+            min-height: 48px;
+            min-width: 120px;
+            padding: 0 20px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #ffffff;
+            background-color: #16a34a;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            white-space: nowrap;
+            box-shadow: 0 4px 10px rgba(22, 163, 74, 0.35);
+            transition: transform 0.1s, background-color 0.2s;
+        }
+
+
+
+        .btn-done {
+            min-height: 48px;
+            min-width: 120px;
+            padding: 0 20px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #ffffff;
+            background-color: #16a34a;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            white-space: nowrap;
+            box-shadow: 0 4px 10px rgba(22, 163, 74, 0.35);
+            transition: transform 0.1s, background-color 0.2s;
+        }
+
+
+
+        .btn-serve {
+            min-height: 48px;
+            min-width: 120px;
+            padding: 0 20px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #ffffff;
+            background-color: #0284c7;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            white-space: nowrap;
+            box-shadow: 0 4px 10px rgba(2, 132, 199, 0.35);
+            transition: transform 0.1s, background-color 0.2s;
+        }
+
+
+
+        .btn-back-step {
+            min-height: 48px;
+            padding: 0 16px;
+            font-size: 1rem;
+            font-weight: bold;
+            color: #334155;
+            background-color: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            cursor: pointer;
+            white-space: nowrap;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+            transition: transform 0.1s ease-out;
+        }
+        .btn-back-step:active { transform: scale(0.98); }
+        .btn-back-step:disabled { background-color: #94a3b8; cursor: default; box-shadow: none; }
+        .btn-cancel {
+            min-height: 48px;
+            padding: 0 16px;
+            font-size: 1rem;
+            font-weight: bold;
+            color: #991b1b;
+            background-color: #ffffff;
+            border: 1px solid #fca5a5;
+            border-radius: 12px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: transform 0.1s, background-color 0.2s;
+        }
+        .btn-cancel:hover { background-color: #fef2f2; }
+        .btn-cancel:active { transform: scale(0.98); }
+        .btn-cancel:disabled { background-color: #94a3b8; cursor: default; }
+        .empty-state {
+            text-align: center;
+            color: #64748b;
+            font-size: 1.15rem;
+            padding: 32px 16px;
+            background-color: #ffffff;
+            border: 2px dashed #cbd5e1;
+            border-radius: 12px;
+            margin-bottom: 12px;
+        }
+        /* โฟกัสคีย์บอร์ดต้องเห็นชัด + เคารพ reduced motion */
+
+        @media (prefers-reduced-motion: reduce) {
+
+        }

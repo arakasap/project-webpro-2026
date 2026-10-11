@@ -199,10 +199,6 @@ body {
         box-shadow: 0 0 15px rgba(0, 0, 0, 0.03);
         backdrop-filter: none;
     }
-
-    .customer-summary-page--actions {
-        padding-bottom: 116px;
-    }
 }
 
 @media (max-width: 360px) {
