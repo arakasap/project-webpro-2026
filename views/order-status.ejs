@@ -10,24 +10,44 @@
 </head>
 <body>
     <main class="status-page customer-summary-page">
-        <header class="summary-page-header">
-            <a class="summary-back-link" href="<%= userId ? `/menu?session_id=${encodeURIComponent(sessionId)}&user_id=${encodeURIComponent(userId)}` : '/' %>">‹ เมนู</a>
-            <div class="summary-page-brand">
-                <h1>ติดตามออร์เดอร์</h1>
-            </div>
-            <span class="customer-pill">โต๊ะ <%= tableNo %></span>
-        </header>
+    <header class="summary-page-header">
+        <a
+            class="summary-back-link"
+            href="<%= userId
+                ? `/menu?session_id=${encodeURIComponent(sessionId)}`
+                    + `&user_id=${encodeURIComponent(userId)}`
+                : '/' %>"
+        >
+            ‹ เมนู
+        </a>
+        <div class="summary-page-brand">
+            <h1>ติดตามออร์เดอร์</h1>
+        </div>
+        <span class="customer-pill">โต๊ะ <%= tableNo %></span>
+    </header>
 
-        <section class="summary-overview" aria-label="สรุปสถานะออร์เดอร์">
-            <div class="summary-stat">
-                <span class="overview-label">รายการที่ติดตาม</span>
-                <strong><%= items.length %> <small>รายการ</small></strong>
-            </div>
-            <div class="summary-stat summary-stat-highlight">
-                <span class="overview-label">กำลังดำเนินการ</span>
-                <strong><%= items.filter((item) => !['served', 'cancelled'].includes(String(item.status || '').toLowerCase())).length %> <small>รายการ</small></strong>
-            </div>
-        </section>
+    <section
+        class="summary-overview"
+        aria-label="สรุปสถานะออร์เดอร์"
+    >
+        <div class="summary-stat">
+            <span class="overview-label">รายการที่ติดตาม</span>
+            <strong>
+                <%= items.length %> <small>รายการ</small>
+            </strong>
+        </div>
+        <div class="summary-stat summary-stat-highlight">
+            <span class="overview-label">กำลังดำเนินการ</span>
+            <strong>
+                <%= items.filter((item) =>
+                    !['served', 'cancelled'].includes(
+                        String(item.status || '').toLowerCase()
+                    )
+                ).length %>
+                <small>รายการ</small>
+            </strong>
+        </div>
+    </section>
 
         <% if (items.length) { %>
             <section class="order-list" aria-label="รายการอาหารและสถานะ">
@@ -45,7 +65,8 @@
                     <article class="order-card summary-item">
                         <div class="order-image-wrap">
                             <% if (item.image_url) { %>
-                                <img src="<%= item.image_url %>" class="order-image" alt="<%= item.name %>" loading="lazy" onerror="this.hidden=true; this.nextElementSibling.hidden=false">
+                                <img src="<%= item.image_url %>" class="order-image" alt="<%= item.name %>" 
+                                loading="lazy" onerror="this.hidden=true; this.nextElementSibling.hidden=false">
                                 <div class="order-image-placeholder" hidden aria-hidden="true">🍽</div>
                             <% } else { %>
                                 <div class="order-image-placeholder" aria-hidden="true">🍽</div>
@@ -60,7 +81,8 @@
                             <p class="item-meta">จำนวน <%= item.qty %> จาน</p>
                             <% if (currentStatus.detail) { %><p class="status-detail"><%= currentStatus.detail %></p><% } %>
                             <% if (item.note) { %><p class="item-note">หมายเหตุ: <%= item.note %></p><% } %>
-                            <% if (item.status === 'cancelled' && item.cancel_reason) { %><p class="cancel-note">เหตุผล: <%= item.cancel_reason %></p><% } %>
+                            <% if (item.status === 'cancelled' && item.cancel_reason) { %><p 
+                                class="cancel-note">เหตุผล: <%= item.cancel_reason %></p><% } %>
                             <div class="order-card-footer">
                                 <div class="owner-summary">
                                     <span class="owner-name"><%= item.owner_names || 'รายการของโต๊ะ' %></span>
@@ -77,7 +99,8 @@
                 <h2>ยังไม่มีรายการให้ติดตาม</h2>
                 <p>เมื่อยืนยันออร์เดอร์แล้ว รายการและสถานะจากครัวจะแสดงที่นี่</p>
                 <% if (userId) { %>
-                    <a href="/menu?session_id=<%= encodeURIComponent(sessionId) %>&user_id=<%= encodeURIComponent(userId) %>">กลับไปเลือกอาหาร</a>
+                    <a href="/menu?session_id=<%= encodeURIComponent(sessionId) %>&user_id=<%= encodeURIComponent(userId) %>">
+                        กลับไปเลือกอาหาร</a>
                 <% } %>
             </section>
         <% } %>
@@ -102,7 +125,8 @@
                     <% (sessionUsers || []).forEach((member) => { %>
                         <label class="owner-chip">
                             <input type="checkbox" name="owner_ids" value="<%= member.user_id %>">
-                            <span class="owner-chip-label"><%= member.name %><% if (String(member.user_id) === String(userId)) { %> (ฉัน)<% } %></span>
+                            <span class="owner-chip-label"><%= member.name %><% 
+                                if (String(member.user_id) === String(userId)) { %> (ฉัน)<% } %></span>
                         </label>
                     <% }); %>
                 </div>
@@ -161,5 +185,6 @@
         }
 
     </script>
+    <script src="/js/live-updates.js" data-session-id="<%= sessionId %>"></script>
 </body>
 </html>

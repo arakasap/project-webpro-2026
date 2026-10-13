@@ -11,14 +11,19 @@
 <body>
     <main class="table-summary-page customer-summary-page">
         <header class="summary-page-header">
-            <a class="summary-back-link" href="/menu?session_id=<%= encodeURIComponent(sessionId) %>&user_id=<%= encodeURIComponent(user.user_id) %>">‹ เมนู</a>
+            <a class="summary-back-link" 
+            href="/menu?session_id=<%= encodeURIComponent(sessionId) %>&user_id=<%= encodeURIComponent(user.user_id) %>">‹ เมนู</a>
             <div class="summary-page-brand">
                 <h1>สรุปรายการโต๊ะ</h1>
             </div>
             <span class="customer-pill">โต๊ะ <%= tableNo %></span>
         </header>
 
-        <p class="table-total-line">ยอดรวมของโต๊ะ <strong>฿<%= Number(tableTotal || 0).toLocaleString(undefined, { maximumFractionDigits: 2 }) %></strong></p>
+        <p class="table-total-line">ยอดรวมของโต๊ะ 
+            <strong>
+                ฿<%= Number(tableTotal || 0).toLocaleString(undefined, { maximumFractionDigits: 2 }) %>
+            </strong>
+        </p>
 
         <% if (typeof splitDetails !== 'undefined' && splitDetails.length > 0) { %>
             <div class="payer-sections" aria-label="สรุปว่าใครจ่ายค่าอะไรบ้าง">
@@ -26,14 +31,18 @@
                     <section class="payer-section" aria-label="รายการของ <%= detail.name %>">
                         <header class="payer-section-heading">
                             <h2><%= detail.name %></h2>
-                            <strong>฿<%= Number(detail.total || 0).toLocaleString(undefined, { maximumFractionDigits: 2 }) %></strong>
+                            <strong>
+                                ฿<%= Number(detail.total || 0).toLocaleString(undefined, { maximumFractionDigits: 2 }) %>
+                            </strong>
                         </header>
                         <% if (detail.items.length > 0) { %>
                             <ul class="payer-item-list">
                                 <% detail.items.forEach((item) => { %>
                                     <li class="payer-item-row">
                                         <span><%= item.name %> <small>× <%= item.qty %></small></span>
-                                        <strong>฿<%= Number(item.share || 0).toLocaleString(undefined, { maximumFractionDigits: 2 }) %></strong>
+                                        <strong>
+                                            ฿<%= Number(item.share || 0).toLocaleString(undefined, { maximumFractionDigits: 2 }) %>
+                                        </strong>
                                     </li>
                                 <% }); %>
                             </ul>
@@ -53,5 +62,6 @@
         <% } %>
 
     </main>
+    <script src="/js/live-updates.js" data-session-id="<%= sessionId %>"></script>
 </body>
 </html>

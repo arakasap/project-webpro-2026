@@ -384,7 +384,8 @@ body {
     gap: 10px;
     width: 100%;
     max-width: 540px;
-    padding: 12px 15px;
+    box-sizing: border-box;
+    padding: 12px max(15px, env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) max(15px, env(safe-area-inset-left));
     border-top: 1px solid var(--border-color);
     background: #fff;
     box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);

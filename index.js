@@ -2,12 +2,20 @@ const express = require('express');
 const session = require('express-session');
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const { EventEmitter } = require('events');
 const createCustomerRouter = require('./routes/customer');
 const createCashierRouter = require('./routes/cashier');
 const createKitchenRouter = require('./routes/kitchen');
 
 const app = express();
+const orderUpdates = new EventEmitter();
+orderUpdates.setMaxListeners(0);
 const PORT = process.env.PORT || 3000;
+
+function notifyOrderUpdate(sessionId) {
+    if (sessionId != null) orderUpdates.emit('order-updated', String(sessionId));
+    orderUpdates.emit('system-updated');
+}
 
 // -----------------------------------------------------------------------------
 // 1. Session cart helpers
@@ -125,6 +133,8 @@ const PROMPTPAY_NO = '0997072467'; // หมายเลข PromptPay ร้า�
 // Feature routes
 app.use(createCustomerRouter({
     db,
+    events: orderUpdates,
+    notifyOrderUpdate,
     cartHelpers: {
         buildSessionCartKey,
         getSessionCartStore,
@@ -134,8 +144,8 @@ app.use(createCustomerRouter({
         getSessionCartSnapshot
     }
 }));
-app.use(createCashierRouter({ db, promptpayNo: PROMPTPAY_NO }));
-app.use(createKitchenRouter({ db }));
+app.use(createCashierRouter({ db, promptpayNo: PROMPTPAY_NO, notifyOrderUpdate }));
+app.use(createKitchenRouter({ db, notifyOrderUpdate }));
 
 // Start Server
 // -----------------------------------------------------------------------------

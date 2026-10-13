@@ -1,7 +1,7 @@
 const express = require('express');
 const { isBillableOrderItem } = require('../utils/order-billing');
 
-function createCustomerRouter({ db, cartHelpers }) {
+function createCustomerRouter({ db, events, notifyOrderUpdate, cartHelpers }) {
     const router = express.Router();
     const {
         buildSessionCartKey,
@@ -11,6 +11,30 @@ function createCustomerRouter({ db, cartHelpers }) {
         removeSessionCartItem,
         getSessionCartSnapshot
     } = cartHelpers;
+
+    router.get(['/api/live/events', '/api/order-status/events'], (req, res) => {
+        const sessionId = String(req.query.session_id || '');
+        const global = req.query.global === '1';
+        if (!sessionId && !global) return res.sendStatus(400);
+
+        res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
+        res.flushHeaders();
+        res.write('retry: 5000\n\n');
+        const sendUpdate = () => res.write('event: update\ndata: {}\n\n');
+        const onOrderUpdate = (changedSessionId) => {
+            if (String(changedSessionId) === sessionId) sendUpdate();
+        };
+        if (global) events.on('system-updated', sendUpdate);
+        else events.on('order-updated', onOrderUpdate);
+        events.on('reset', sendUpdate);
+        const heartbeat = setInterval(() => res.write(': keep-alive\n\n'), 25000);
+        res.on('close', () => {
+            clearInterval(heartbeat);
+            events.off('system-updated', sendUpdate);
+            events.off('order-updated', onOrderUpdate);
+            events.off('reset', sendUpdate);
+        });
+    });
 
     router.get('/', (req, res) => {
         const sessionId = req.query.session_id || 1;
@@ -67,6 +91,7 @@ function createCustomerRouter({ db, cartHelpers }) {
                             console.error('Error saving user:', err.message);
                             return res.status(500).send('เกิดข้อผิดพลาดในการบันทึกข้อมูลผู้ใช้');
                         }
+                        notifyOrderUpdate(sessionIdToUse);
                         res.redirect(`/menu?session_id=${sessionIdToUse}&user_id=${this.lastID}`);
                     });
                 };
@@ -486,6 +511,7 @@ function createCustomerRouter({ db, cartHelpers }) {
                             }
                             db.run('COMMIT', (commitErr) => {
                                 if (commitErr) return res.status(500).json({ success: false, message: 'ยืนยันการบันทึกไม่สำเร็จ' });
+                                notifyOrderUpdate(sessionId);
                                 res.json({ success: true });
                             });
                         });
@@ -551,6 +577,7 @@ function createCustomerRouter({ db, cartHelpers }) {
         db.run(sql, [session_id || 1, name.trim()], function (err) {
             if (err) return res.status(500).json({ error: 'เกิดข้อผิดพลาดในการบันทึกข้อมูล' });
 
+            notifyOrderUpdate(session_id || 1);
             res.json({
                 user_id: this.lastID,
                 name: name.trim()
@@ -780,6 +807,7 @@ function createCustomerRouter({ db, cartHelpers }) {
                                 }
                                 db.run('COMMIT', (commitErr) => {
                                     if (commitErr) return res.status(500).json({ success: false, message: 'ยืนยันการบันทึกไม่สำเร็จ' });
+                                    notifyOrderUpdate(sessionId);
                                     res.json({ success: true });
                                 });
                             });
@@ -853,6 +881,7 @@ function createCustomerRouter({ db, cartHelpers }) {
                             if (saveErr) {
                                 console.error('Error clearing temp cart after confirm:', saveErr.message);
                             }
+                            notifyOrderUpdate(session_id);
                             res.json({ success: true, message: 'บันทึกออเดอร์ลงฐานข้อมูลเรียบร้อยแล้ว' });
                         });
                     })
@@ -907,6 +936,7 @@ function createCustomerRouter({ db, cartHelpers }) {
                     return res.status(400).json({ success: false, message: 'ไม่มีรายการอาหารใหม่ให้ส่งเข้าครัว' });
                 }
 
+                notifyOrderUpdate(sessionId);
                 res.json({ success: true, message: 'ส่งออเดอร์เข้าครัวเรียบร้อยแล้ว', tableNo: sessionId });
             });
         });
@@ -943,12 +973,17 @@ function createCustomerRouter({ db, cartHelpers }) {
             });
         }
 
-        db.run('DELETE FROM ORDER_ITEM_OWNERS WHERE order_item_id = ?', [itemId], (err) => {
-            if (err) return res.status(500).json({ success: false, message: 'ไม่สามารถลบรายการได้' });
-
-            db.run('DELETE FROM ORDER_ITEMS WHERE order_item_id = ?', [itemId], (err) => {
+        db.get(`SELECT o.session_id FROM ORDER_ITEMS oi JOIN ORDERS o ON o.order_id = oi.order_id
+                WHERE oi.order_item_id = ?`, [itemId], (findErr, order) => {
+            if (findErr) return res.status(500).json({ success: false, message: 'ไม่สามารถลบรายการได้' });
+            db.run('DELETE FROM ORDER_ITEM_OWNERS WHERE order_item_id = ?', [itemId], (err) => {
                 if (err) return res.status(500).json({ success: false, message: 'ไม่สามารถลบรายการได้' });
-                res.json({ success: true });
+
+                db.run('DELETE FROM ORDER_ITEMS WHERE order_item_id = ?', [itemId], (err) => {
+                    if (err) return res.status(500).json({ success: false, message: 'ไม่สามารถลบรายการได้' });
+                    if (order) notifyOrderUpdate(order.session_id);
+                    res.json({ success: true });
+                });
             });
         });
     });
@@ -961,6 +996,7 @@ function createCustomerRouter({ db, cartHelpers }) {
 
             db.run('DELETE FROM ORDER_ITEMS WHERE order_item_id = ?', [order_item_id], (err) => {
                 if (err) return res.status(500).send('ไม่สามารถลบรายการได้');
+                notifyOrderUpdate(session_id);
                 res.redirect(`/cart?session_id=${session_id}&user_id=${user_id}`);
             });
         });
@@ -1004,6 +1040,7 @@ function createCustomerRouter({ db, cartHelpers }) {
                             return res.status(500).json({ error: 'ล้างฐานข้อมูลสำเร็จ แต่สร้าง Session ใหม่ไม่สำเร็จ: ' + err.message });
                         }
 
+                        events.emit('reset');
                         res.json({
                             message: 'Database reset and new session created successfully',
                             new_session_id: this.lastID,

@@ -13,14 +13,16 @@
         data-session-id="<%= sessionId %>"
         data-user-id="<%= user.user_id %>">
         <header class="summary-page-header">
-            <a class="summary-back-link" href="/menu?session_id=<%= encodeURIComponent(sessionId) %>&user_id=<%= encodeURIComponent(user.user_id) %>" aria-label="กลับไปหน้าเมนู">‹ เมนู</a>
+            <a class="summary-back-link" 
+            href="/menu?session_id=<%= encodeURIComponent(sessionId) %>&user_id=<%= encodeURIComponent(user.user_id) %>" >
+            ‹ เมนู</a>
             <div class="summary-page-brand">
                 <h1>เเก้ไขรายชื่อผู้รับผิดชอบ</h1>
             </div>
             <span class="customer-pill">โต๊ะ <%= tableNo %></span>
         </header>
 
-        <section class="summary-overview" aria-label="สรุปยอดรายการอาหาร">
+        <section class="summary-overview" >
             <div class="summary-stat">
                 <span class="overview-label">รายการอาหาร</span>
                 <strong><%= items.length %> <small>รายการ</small></strong>
@@ -39,7 +41,9 @@
                     <article class="food-card">
                         <div class="food-image-wrap">
                             <% if (item.image_url) { %>
-                                <img class="food-image" src="<%= item.image_url %>" alt="<%= item.item_name %>" loading="lazy" onerror="this.hidden=true; this.nextElementSibling.hidden=false">
+                                <img class="food-image" src="<%= item.image_url %>" 
+                                alt="<%= item.item_name %>" loading="lazy" 
+                                onerror="this.hidden=true; this.nextElementSibling.hidden=false">
                                 <span class="food-image-placeholder" hidden aria-hidden="true">อาหาร</span>
                             <% } else { %>
                                 <span class="food-image-placeholder" aria-hidden="true">อาหาร</span>
@@ -52,7 +56,8 @@
                                     <p class="food-order-number">รายการ #<%= item.order_item_id %></p>
                                     <h2><%= item.item_name %></h2>
                                 </div>
-                                <strong class="food-total">฿<%= Number(item.line_total || 0).toLocaleString(undefined, { maximumFractionDigits: 0 }) %></strong>
+                                <strong class="food-total">฿
+                                    <%= Number(item.line_total || 0).toLocaleString(undefined, { maximumFractionDigits: 0 }) %></strong>
                             </div>
 
                             <p class="food-quantity">จำนวน <%= item.qty %> จาน</p>
@@ -99,7 +104,8 @@
                 <% sessionUsers.forEach((member) => { %>
                     <label class="owner-chip">
                         <input type="checkbox" name="owner_ids" value="<%= member.user_id %>">
-                        <span class="owner-chip-label"><%= member.name %><% if (String(member.user_id) === String(user.user_id)) { %> (ฉัน)<% } %></span>
+                        <span class="owner-chip-label">
+                            <%= member.name %><% if (String(member.user_id) === String(user.user_id)) { %> (ฉัน)<% } %></span>
                     </label>
                 <% }); %>
             </div>
@@ -182,5 +188,6 @@
             }
         });
     </script>
+    <script src="/js/live-updates.js" data-session-id="<%= sessionId %>"></script>
 </body>
 </html>

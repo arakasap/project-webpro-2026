@@ -12,7 +12,8 @@
 
 <main class="container customer-summary-page customer-summary-page--actions">
     <header class="summary-page-header">
-        <a href="/menu?session_id=<%= encodeURIComponent(sessionId) %>&user_id=<%= encodeURIComponent(userId) %>" class="summary-back-link">‹ เมนู</a>
+        <a href="/menu?session_id=<%= encodeURIComponent(sessionId) %>&user_id=<%= encodeURIComponent(userId) %>" 
+            class="summary-back-link">‹ เมนู</a>
         <div class="summary-page-brand">
             <h1>รายการที่สั่งแล้ว</h1>
         </div>
@@ -42,7 +43,8 @@
                     <article class="cart-item-card <%= item.isMyItem ? 'my-item' : 'other-item' %>" id="item-card-<%= item.id %>">
                         <div class="cart-image-wrap">
                             <% if (item.image) { %>
-                                <img src="<%= item.image %>" class="cart-item-image" alt="<%= item.title %>" loading="lazy" onerror="this.hidden=true; this.nextElementSibling.hidden=false">
+                                <img src="<%= item.image %>" class="cart-item-image" alt="<%= item.title %>" 
+                                loading="lazy" onerror="this.hidden=true; this.nextElementSibling.hidden=false">
                                 <div class="cart-image-placeholder" hidden aria-hidden="true">🍽</div>
                             <% } else { %>
                                 <div class="cart-image-placeholder" aria-hidden="true">🍽</div>
@@ -52,8 +54,11 @@
                             <div class="cart-item-top">
                                 <span class="owner-badge <%= item.isMyItem ? 'owner-mine' : 'owner-shared' %>"><%= item.isMyItem ? 'รายการของคุณ' : 'รายการของเพื่อน' %></span>
                                 <% if (item.isMyItem) { %>
-                                    <button type="button" class="edit-item-btn" data-item-id="<%= item.id %>" data-title="<%= item.title %>" data-price="<%= item.price %>" data-image="<%= item.image || '' %>" data-quantity="<%= item.quantity %>" data-note="<%= item.note || '' %>" data-owner-ids="<%= item.owner_ids || userId %>" onclick="openCartItemEditor(this)">แก้ไข</button>
-                                    <button type="button" class="btn-delete" onclick="deleteCartItem('<%= item.id %>')" aria-label="ลบ <%= item.title %>" title="ลบรายการ">×</button>
+                                    <button type="button" class="edit-item-btn" data-item-id="<%= item.id %>" data-title="<%= item.title %>" 
+                                        data-price="<%= item.price %>" data-image="<%= item.image || '' %>" data-quantity="<%= item.quantity %>" 
+                                        data-note="<%= item.note || '' %>" data-owner-ids="<%= item.owner_ids || userId %>" onclick="openCartItemEditor(this)">แก้ไข</button>
+                                    <button type="button" class="btn-delete" onclick="deleteCartItem('<%= item.id %>')" aria-label="ลบ <%= item.title %>" 
+                                        title="ลบรายการ">×</button>
                                 <% } %>
                             </div>
                             <h2 class="cart-item-title"><%= item.title %></h2>
@@ -80,18 +85,19 @@
         </div>
     </section>
 
-    <!-- ปุ่มด้านล่าง -->
-    <div class="bottom-bar">
-        <a href="/menu?session_id=<%= sessionId %>&user_id=<%= userId %>" class="btn-add-more">สั่งเพิ่ม</a>
-        <button type="button" 
-                class="btn-pay" 
-                id="btn-submit-order" 
-                onclick="sendOrderToKitchen()" 
-                <%= myItemsCount === 0 ? 'disabled' : '' %>>
-            ยืนยันออร์เดอร์ของคุณ (<%= myItemsCount %>)
-        </button>
-    </div>
 </main>
+
+<!-- ปุ่มด้านล่าง -->
+<div class="bottom-bar">
+    <a href="/menu?session_id=<%= sessionId %>&user_id=<%= userId %>" class="btn-add-more">สั่งเพิ่ม</a>
+    <button type="button"
+            class="btn-pay"
+            id="btn-submit-order"
+            onclick="sendOrderToKitchen()"
+            <%= myItemsCount === 0 ? 'disabled' : '' %>>
+        ยืนยันออร์เดอร์ของคุณ (<%= myItemsCount %>)
+    </button>
+</div>
 
 <div class="cart-edit-overlay" id="cartEditModal" onclick="closeCartEditOnOverlay(event)" aria-hidden="true">
     <section class="cart-edit-modal" role="dialog" aria-modal="true" aria-labelledby="cartEditTitle">
@@ -120,7 +126,8 @@
                 <% (sessionUsers || []).forEach((member) => { %>
                     <label class="owner-chip">
                         <input type="checkbox" name="cart_edit_owner_ids" value="<%= member.user_id %>">
-                        <span class="owner-chip-label"><%= member.name %><% if (String(member.user_id) === String(userId)) { %> (ฉัน)<% } %></span>
+                        <span class="owner-chip-label">
+                            <%= member.name %><% if (String(member.user_id) === String(userId)) { %> (ฉัน)<% } %></span>
                     </label>
                 <% }); %>
             </div>
@@ -300,5 +307,6 @@
     window.saveCartItemEdit = saveCartItemEdit;
 </script>
 
+<script src="/js/live-updates.js" data-session-id="<%= sessionId %>"></script>
 </body>
 </html>

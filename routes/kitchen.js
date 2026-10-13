@@ -1,6 +1,6 @@
 const express = require('express');
 
-function createKitchenRouter({ db }) {
+function createKitchenRouter({ db, notifyOrderUpdate }) {
     const router = express.Router();
 
     const ST = { PENDING: 'pending', ORDERED: 'ordered', COOKING: 'cooking', READY: 'ready', SERVED: 'served', CANCELLED: 'cancelled' };
@@ -10,6 +10,18 @@ function createKitchenRouter({ db }) {
     const SERVE_STEP = { served: 'ready' };
     // ข้อความแจ้งเตือนที่อนุญาตให้แสดงผ่าน query msg (กันการพิมพ์ค่าดิบจากผู้ใช้)
     const KITCHEN_MSG = ['taken', 'invalid', 'changed'];
+
+    function notifyOrderItems(itemIds) {
+        const marks = itemIds.map(() => '?').join(',');
+        db.all(`SELECT DISTINCT o.session_id FROM ORDER_ITEMS oi JOIN ORDERS o ON o.order_id = oi.order_id
+                WHERE oi.order_item_id IN (${marks})`, itemIds, (err, rows) => {
+            if (err) {
+                console.error('Error finding updated order sessions:', err.message);
+                return;
+            }
+            (rows || []).forEach((row) => notifyOrderUpdate(row.session_id));
+        });
+    }
 
     // แต่งแถว ORDER_ITEMS ให้พร้อมแสดงผล (เวลาไทย ป้ายใหม่ นาทีที่รอ ยอดเงิน เหตุผลยกเลิก)
     function makeItem(r, now) {
@@ -113,6 +125,7 @@ function createKitchenRouter({ db }) {
                 if (this.changes === 0) {
                     return res.redirect('/kitchen?msg=taken');
                 }
+                notifyOrderItems(idList);
                 res.redirect('/kitchen/orders');
             });
         });
@@ -327,6 +340,7 @@ function createKitchenRouter({ db }) {
                 if (this.changes === 0) {
                     return respondError('changed', 409);
                 }
+                notifyOrderItems([itemId]);
                 if (wantsJson) return res.json({ ok: true, orderItemId: itemId, status: to });
                 res.redirect(homeBack || backTo);
             };

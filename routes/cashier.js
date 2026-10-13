@@ -1,7 +1,7 @@
 const express = require('express');
 const { BILLABLE_ORDER_ITEM_SQL } = require('../utils/order-billing');
 
-function createCashierRouter({ db, promptpayNo }) {
+function createCashierRouter({ db, promptpayNo, notifyOrderUpdate }) {
     const router = express.Router();
     const PROMPTPAY_NO = promptpayNo;
 
@@ -313,9 +313,13 @@ function createCashierRouter({ db, promptpayNo }) {
 
         const nextStatus = isPaid === 'true' ? 0 : 1;
 
-        db.run(`UPDATE SESSION_USERS SET is_paid = ? WHERE user_id = ?`, [nextStatus, userId], (err) => {
-            if (err) console.error('Error updating paid status:', err.message);
-            res.redirect(`/cashier/table/${tableId}/payment`);
+        db.get('SELECT session_id FROM SESSION_USERS WHERE user_id = ?', [userId], (findErr, member) => {
+            if (findErr) console.error('Error finding payment session:', findErr.message);
+            db.run(`UPDATE SESSION_USERS SET is_paid = ? WHERE user_id = ?`, [nextStatus, userId], (err) => {
+                if (err) console.error('Error updating paid status:', err.message);
+                else if (member) notifyOrderUpdate(member.session_id);
+                res.redirect(`/cashier/table/${tableId}/payment`);
+            });
         });
     });
 
@@ -451,6 +455,7 @@ function createCashierRouter({ db, promptpayNo }) {
 
                                                         db.run('COMMIT', (commitErr) => {
                                                             if (commitErr) return failTransaction('COMMIT', commitErr);
+                                                            notifyOrderUpdate(sessionRow.session_id);
                                                             res.redirect('/cashier');
                                                         });
                                                     }
