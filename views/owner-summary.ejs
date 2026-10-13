@@ -168,6 +168,7 @@
             saveOwnersButton.textContent = 'กำลังบันทึก…';
             ownerEditorMessage.textContent = '';
 
+            window.pauseLiveUpdateReload = true;
             try {
                 const response = await fetch(`/api/order-items/${encodeURIComponent(editingOrderItemId)}/owners`, {
                     method: 'POST',
@@ -182,6 +183,7 @@
                 if (!response.ok || !result.success) throw new Error(result.message || 'บันทึกผู้หารไม่สำเร็จ');
                 window.location.reload();
             } catch (error) {
+                window.pauseLiveUpdateReload = false;
                 ownerEditorMessage.textContent = error.message || 'เกิดข้อผิดพลาด กรุณาลองอีกครั้ง';
                 saveOwnersButton.disabled = false;
                 saveOwnersButton.textContent = 'บันทึกผู้หาร';

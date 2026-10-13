@@ -305,6 +305,7 @@
                 return;
             }
 
+            window.pauseLiveUpdateReload = true;
             try {
                 const response = await fetch('/api/add-user', {
                     method: 'POST',
@@ -341,6 +342,8 @@
             } catch (err) {
                 console.error(err);
                 alert('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+            } finally {
+                window.pauseLiveUpdateReload = false;
             }
         }
 

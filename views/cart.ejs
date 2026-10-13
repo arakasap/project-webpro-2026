@@ -207,6 +207,7 @@
 
         const button = document.getElementById('cartEditSubmit');
         button.disabled = true;
+        window.pauseLiveUpdateReload = true;
         try {
             const response = await fetch(`/api/cart/item/${encodeURIComponent(editingCartItemId)}`, {
                 method: 'PUT',
@@ -223,6 +224,7 @@
             if (!response.ok || !result.success) throw new Error(result.message || 'แก้ไขรายการไม่สำเร็จ');
             window.location.reload();
         } catch (error) {
+            window.pauseLiveUpdateReload = false;
             alert(error.message || 'เกิดข้อผิดพลาดในการบันทึก');
             button.disabled = false;
         }
@@ -231,6 +233,7 @@
     async function sendOrderToKitchen() {
         if (!confirm('ยืนยันส่งรายการอาหารของคุณไปยังครัว?')) return;
 
+        window.pauseLiveUpdateReload = true;
         const btn = document.getElementById('btn-submit-order');
         if (btn) {
             btn.disabled = true;
@@ -272,6 +275,7 @@
 
             window.location.href = `/order-status?session_id=${encodeURIComponent(sessionId)}&user_id=${encodeURIComponent(userId)}`;
         } catch (err) {
+            window.pauseLiveUpdateReload = false;
             console.error(err);
             alert(err.message || 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้');
             if (btn) {
@@ -284,6 +288,7 @@
     async function deleteCartItem(itemId) {
         if (!confirm('ต้องการลบรายการนี้ใช่หรือไม่?')) return;
 
+        window.pauseLiveUpdateReload = true;
         try {
             const response = await fetch(`/api/cart/item/${encodeURIComponent(itemId)}`, { method: 'DELETE' });
             const result = await response.json();
@@ -291,9 +296,11 @@
             if (result.success) {
                 location.reload();
             } else {
+                window.pauseLiveUpdateReload = false;
                 alert('ลบไม่สำเร็จ: ' + result.message);
             }
         } catch (err) {
+            window.pauseLiveUpdateReload = false;
             alert('เกิดข้อผิดพลาดในการลบรายการ');
         }
     }

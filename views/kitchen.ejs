@@ -317,6 +317,7 @@
         const tableCardId = tableCard ? tableCard.id : '';
         const previousTop = tableCard ? tableCard.getBoundingClientRect().top : null;
 
+        window.pauseLiveUpdateReload = true;
         try {
             const response = await fetch(form.action, {
                 method: 'POST',
@@ -352,6 +353,8 @@
             } else {
                 alert(error.message);
             }
+        } finally {
+            window.pauseLiveUpdateReload = false;
         }
     });
     (function () {
