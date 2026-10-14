@@ -114,7 +114,7 @@
                                 </form>
                             <% } %>
                             <% if (b.action !== 'none' && (staffRole === 'serve' || b.action !== 'accept')) { %>
-                                <a class="btn-link" href="/kitchen/table/<%= b.table_id %>?from=<%= mode === 'server' ? 'orders' : 'kitchen' %>">ดูรายละเอียด</a>
+                                <a class="btn-link" href="/kitchen/status#table-status-<%= b.table_id %>">อัพเดทรายการอาหาร</a>
                             <% } %>
                         </section>
                     <% }); %>
@@ -275,20 +275,6 @@
             <% } %>
         <% } %>
 
-        <% if (mode === 'tables') { %>
-            <% if (tables.length > 0) { %>
-                <div class="card-grid">
-                    <% tables.forEach(function(t) { %>
-                        <a class="table-link" href="/kitchen/table/<%= t.table_id %>?from=status">
-                            <span>โต๊ะ <%= t.table_number %></span>
-                            <span>สั่ง <%= t.total %> รายการ<% if (t.cancelled > 0) { %> · ยกเลิก <%= t.cancelled %> รายการ<% } %></span>
-                        </a>
-                    <% }); %>
-                </div>
-            <% } else { %>
-                <div class="empty-state">ไม่มีโต๊ะที่ต้องอัพเดท<small>โต๊ะที่มีงานค้างจะขึ้นที่นี่ กดเพื่อดูรายจาน</small></div>
-            <% } %>
-        <% } %>
     </main>
 </div>
 <script>

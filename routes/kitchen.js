@@ -347,76 +347,11 @@ function createKitchenRouter({ db, notifyOrderUpdate }) {
         });
     });
 
-    router.get('/kitchen/table', (req, res) => {
-        res.redirect('/kitchen/orders');
-    });
-
-    // 8.5 หน้ารายละเอียดรายโต๊ะ (แยก 4 กอง: รอรับ กำลังปรุง พร้อมเสิร์ฟ ยกเลิกแล้ว)
-    router.get('/kitchen/table/:table_id', (req, res) => {
-        const tableId = req.params.table_id;
-        const rawMsg = String(req.query.msg || '');
-        const msg = KITCHEN_MSG.includes(rawMsg) ? rawMsg : '';
-        // จำหน้ามาเพื่อไฮไลต์แท็บและปุ่มกลับให้ถูก (kitchen / status / orders)
-        const rawFrom = String(req.query.from || '');
-        const fromPage = ['kitchen', 'status', 'orders'].includes(rawFrom) ? rawFrom : 'status';
-        const backUrl = fromPage === 'kitchen' ? '/kitchen'
-            : (fromPage === 'orders' ? '/kitchen/orders' : '/kitchen/status');
-        const backText = fromPage === 'kitchen' ? 'กลับหน้าครัว'
-            : (fromPage === 'orders' ? 'กลับหน้าออร์เดอร์ที่ต้องทำ' : 'กลับหน้าอัพเดท');
-
-        db.get('SELECT table_id, table_number FROM TABLES WHERE CAST(table_id AS TEXT) = CAST(? AS TEXT)', [tableId], (err, table) => {
-            if (err) {
-                console.error('Error fetching kitchen table:', err.message);
-                return res.status(500).send('เกิดข้อผิดพลาดในการดึงข้อมูลโต๊ะครัว');
-            }
-            const tableInfo = table || { table_id: tableId, table_number: tableId };
-
-            const sql = `
-                SELECT oi.order_item_id, oi.qty, oi.note, oi.status, oi.cancel_reason,
-                       COALESCE(oi.sent_at, o.created_at) AS sent_at, mi.name
-                FROM ORDER_ITEMS oi
-                JOIN ORDERS o     ON o.order_id = oi.order_id
-                JOIN SESSIONS s   ON s.session_id = o.session_id
-                JOIN TABLES t     ON CAST(t.table_id AS TEXT) = CAST(s.table_id AS TEXT)
-                JOIN MENU_ITEMS mi ON mi.menu_item_id = oi.menu_item_id
-                WHERE oi.status IN ('ordered', 'cooking', 'ready', 'cancelled', 'served')
-                  AND LOWER(TRIM(s.status)) = 'active'
-                  AND CAST(t.table_id AS TEXT) = CAST(? AS TEXT)
-                ORDER BY sent_at DESC, oi.order_item_id DESC
-            `;
-
-            db.all(sql, [tableId], (err, rows) => {
-                if (err) {
-                    console.error('Error fetching kitchen table items:', err.message);
-                    return res.status(500).send('เกิดข้อผิดพลาดในการดึงข้อมูลรายการของโต๊ะ');
-                }
-
-                const now = Date.now();
-                const ordered = [];
-                const cooking = [];
-                const ready = [];
-                const served = [];
-                const cancelled = [];
-                (rows || []).forEach((r) => {
-                    const item = makeItem(r, now);
-                    if (r.status === ST.ORDERED) ordered.push(item);
-                    else if (r.status === ST.COOKING) cooking.push(item);
-                    else if (r.status === ST.READY) ready.push(item);
-                    else if (r.status === ST.SERVED) served.push(item);
-                    else cancelled.push(item);
-                });
-
-                res.render('kitchen-detail', { table: tableInfo, ordered: ordered, cooking: cooking, ready: ready, served: served, cancelled: cancelled, msg: msg, page: fromPage, backUrl: backUrl, backText: backText });
-            });
-        });
-    });
-
-    // 8.6 เปลี่ยนสถานะรายจาน (ครัว: cooking <-> ready / เสิร์ฟ: ready -> served / ยกเลิก: ต้องมีเหตุผล)
+    // 8.5 เปลี่ยนสถานะรายจาน (ครัว: cooking <-> ready / เสิร์ฟ: ready -> served / ยกเลิก: ต้องมีเหตุผล)
     router.post('/kitchen/item/:id/status', (req, res) => {
         const itemId = Number(req.params.id);
         const to = String(req.body.to || '');
-        const tableId = String(req.body.table_id || '');
-        const backTo = /^[0-9]+$/.test(tableId) ? '/kitchen/table/' + tableId : '/kitchen';
+        const backTo = req.kitchenStaff.role === 'serve' ? '/orders' : '/kitchen/status';
         const wantsJson = (req.get('accept') || '').includes('application/json');
         // หน้าที่กดปุ่มมา (ให้เด้งกลับหน้านั้น): รายละเอียดเสิร์ฟ หรือ ออเดอร์ที่ต้องทำ
         const BACK_OK = ['/orders', '/kitchen/ordered', '/kitchen/orders', '/kitchen/status'];
@@ -473,7 +408,7 @@ function createKitchenRouter({ db, notifyOrderUpdate }) {
         }
     });
 
-    // 8.7 หน้ารายละเอียดคำสั่งซื้อ (พนักงานเสิร์ฟ/แคชเชียร์ดูได้: เห็นทุกบิล บิลใหม่ขึ้นก่อน)
+    // 8.6 หน้ารายละเอียดคำสั่งซื้อ (พนักงานเสิร์ฟ/แคชเชียร์ดูได้: เห็นทุกบิล บิลใหม่ขึ้นก่อน)
     router.get('/orders', (req, res) => {
         const rawMsg = String(req.query.msg || '');
         const msg = KITCHEN_MSG.includes(rawMsg) ? rawMsg : '';
