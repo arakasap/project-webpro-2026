@@ -93,14 +93,6 @@
                                     <% if (item.note) { %>
                                         <span class="dish-note">หมายเหตุ: <%= item.note %></span>
                                     <% } %>
-                                    <% if (staffRole === 'serve' && b.action === 'serve') { %>
-                                        <form method="POST" action="/kitchen/item/<%= item.order_item_id %>/status" onsubmit="return busySubmit(this, 'กำลังบันทึก...');">
-                                            <input type="hidden" name="to" value="served">
-                                            <input type="hidden" name="table_id" value="<%= b.table_id %>">
-                                            <input type="hidden" name="back" value="/orders">
-                                            <button type="submit" class="btn-serve">เสิร์ฟแล้ว</button>
-                                        </form>
-                                    <% } %>
                                 </div>
                             <% }); %>
                             <% if (b.action === 'none') { %>
