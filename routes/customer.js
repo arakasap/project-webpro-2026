@@ -485,8 +485,8 @@ function createCustomerRouter({ db, events, notifyOrderUpdate, cartHelpers }) {
         `, [orderItemId, sessionId, userId], (findErr, item) => {
             if (findErr) return res.status(500).json({ success: false, message: 'ตรวจสอบรายการไม่สำเร็จ' });
             if (!item) return res.status(404).json({ success: false, message: 'ไม่พบรายการหรือคุณไม่ได้เป็นสมาชิกโต๊ะนี้' });
-            if (['served', 'cancelled'].includes(String(item.status).toLowerCase())) {
-                return res.status(400).json({ success: false, message: 'รายการที่เสิร์ฟหรือยกเลิกแล้วแก้ผู้รับผิดชอบไม่ได้' });
+            if (String(item.status || '').toLowerCase() === 'cancelled') {
+                return res.status(400).json({ success: false, message: 'รายการที่ยกเลิกแล้วแก้ผู้รับผิดชอบไม่ได้' });
             }
 
             const placeholders = ownerIds.map(() => '?').join(',');

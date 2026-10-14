@@ -8,13 +8,41 @@
     <link rel="stylesheet" href="/css/kitchen.css">
     <link rel="stylesheet" href="/css/staff.css">
 </head>
-<body class="staff-ui staff-kitchen">
+<% const isLoginRequired = typeof loginRequired !== 'undefined' && loginRequired; %>
+<body class="staff-ui staff-kitchen<%= isLoginRequired ? ' kitchen-auth-required' : '' %>">
+
+<% if (isLoginRequired) { %>
+    <dialog class="kitchen-login-modal" id="kitchen-login-modal" data-auto-open="true" aria-labelledby="kitchen-login-title">
+        <h2 id="kitchen-login-title">เข้าสู่หน้าครัว</h2>
+        <p class="kitchen-login-intro">กรอกรหัสพนักงานเพื่อดำเนินการต่อ</p>
+        <% if (loginError) { %>
+            <p class="kitchen-login-error" role="alert"><%= loginError %></p>
+        <% } %>
+        <form method="POST" action="/kitchen/login">
+            <label for="kitchen-login-password">รหัสพนักงาน</label>
+            <input
+                id="kitchen-login-password"
+                name="password"
+                type="password"
+                autocomplete="current-password"
+                required
+                autofocus
+            >
+            <button type="submit">เข้าสู่ระบบ</button>
+        </form>
+    </dialog>
+<% } %>
 
 <nav class="sidebar">
-    <a class="staff-brand-link" href="/kitchen">ไอทีม่วนแจ่ม <span>STAFF</span></a>
-    <a href="/kitchen" class="<%= page === 'kitchen' ? 'active' : '' %>">ดูรายละเอียด</a>
-    <a href="/kitchen/orders" class="<%= page === 'orders' ? 'active' : '' %>">ออเดอร์ที่ต้องทำ</a>
+    <a class="staff-brand-link" href="<%= staffRole === 'serve' ? '/orders' : '/kitchen' %>">ไอทีม่วนแจ่ม <span>STAFF</span></a>
+    <a href="<%= staffRole === 'serve' ? '/orders' : '/kitchen' %>" class="<%= page === 'kitchen' || (staffRole === 'serve' && mode === 'server') ? 'active' : '' %>">ดูรายละเอียด</a>
+    <% if (staffRole === 'kitchen') { %>
+        <a href="/kitchen/orders" class="<%= page === 'orders' ? 'active' : '' %>">ออเดอร์ที่ต้องทำ</a>
+    <% } %>
     <a href="/kitchen/status" class="<%= page === 'status' ? 'active' : '' %>">อัพเดทสถานะ</a>
+    <form class="staff-logout-form" method="POST" action="/kitchen/logout">
+        <button class="staff-logout" type="submit">ออกจากระบบ</button>
+    </form>
 </nav>
 <div class="kitchen-container">
     <header class="kitchen-header">
@@ -34,13 +62,14 @@
         <% if (mode === 'status') { %>
             <div id="status-feedback" role="status" aria-live="polite" hidden></div>
         <% } %>
-        <% const isServer = (mode === 'server'); %>
         <% if (msg === 'taken') { %>
             <div class="alert">มีคนรับรายการนี้ไปแล้ว</div>
         <% } else if (msg === 'invalid') { %>
             <div class="alert">ข้อมูลไม่ถูกต้อง</div>
         <% } else if (msg === 'changed') { %>
             <div class="alert">สถานะรายการเปลี่ยนไปแล้ว</div>
+        <% } else if (msg === 'forbidden') { %>
+            <div class="alert">บัญชีนี้ไม่มีสิทธิ์ทำรายการดังกล่าว</div>
         <% } %>
 
         <% if (mode === 'kitchen' || mode === 'server') { %>
@@ -64,7 +93,7 @@
                                     <% if (item.note) { %>
                                         <span class="dish-note">หมายเหตุ: <%= item.note %></span>
                                     <% } %>
-                                    <% if (isServer && b.action === 'serve') { %>
+                                    <% if (staffRole === 'serve' && b.action === 'serve') { %>
                                         <form method="POST" action="/kitchen/item/<%= item.order_item_id %>/status" onsubmit="return busySubmit(this, 'กำลังบันทึก...');">
                                             <input type="hidden" name="to" value="served">
                                             <input type="hidden" name="table_id" value="<%= b.table_id %>">
@@ -78,17 +107,14 @@
                                 <span class="cancel-note">ยกเลิกแล้ว: <%= b.items[0].cancel_reason %></span>
                             <% } %>
                             <div class="bill-total"><span>รวม</span><span>฿<%= b.total.toLocaleString() %></span></div>
-                            <% if (!isServer && b.action === 'accept') { %>
+                            <% if (staffRole === 'kitchen' && b.action === 'accept') { %>
                                 <form method="POST" action="/kitchen/accept" onsubmit="return busySubmit(this, 'กำลังรับ...');">
                                     <input type="hidden" name="ids" value="<%= b.ids %>">
                                     <button type="submit" class="btn-accept">รับรายการอาหาร</button>
                                 </form>
                             <% } %>
-                            <% if (!isServer && b.action === 'update') { %>
-                                <a class="btn-link" href="/kitchen/table/<%= b.table_id %>?from=kitchen">อัพเดทสถานะ</a>
-                            <% } %>
-                            <% if (isServer && b.action !== 'none') { %>
-                                <a class="btn-link" href="/kitchen/table/<%= b.table_id %>?from=orders">ดูรายละเอียด</a>
+                            <% if (b.action !== 'none' && (staffRole === 'serve' || b.action !== 'accept')) { %>
+                                <a class="btn-link" href="/kitchen/table/<%= b.table_id %>?from=<%= mode === 'server' ? 'orders' : 'kitchen' %>">ดูรายละเอียด</a>
                             <% } %>
                         </section>
                     <% }); %>
@@ -196,7 +222,7 @@
                                                             <span class="wait<%= dish.waitMin > 10 ? ' wait-over' : '' %>">รอ <%= dish.waitMin %> นาที</span>
                                                         <% } %>
                                                     </div>
-                                                    <% if (dish.status === 'cooking') { %>
+                                                    <% if (staffRole === 'kitchen' && dish.status === 'cooking') { %>
                                                         <div class="status-dish-actions">
                                                             <form method="POST" action="/kitchen/item/<%= dish.order_item_id %>/status" data-async-status onsubmit="return busySubmit(this, 'กำลังย้อนกลับ...');">
                                                                 <input type="hidden" name="to" value="ordered">
@@ -214,18 +240,21 @@
                                                         </div>
                                                     <% } else if (dish.status === 'ready') { %>
                                                         <div class="status-dish-actions">
-                                                            <form method="POST" action="/kitchen/item/<%= dish.order_item_id %>/status" data-async-status onsubmit="return busySubmit(this, 'กำลังบันทึก...');">
-                                                                <input type="hidden" name="to" value="served">
-                                                                <input type="hidden" name="table_id" value="<%= dish.table_id %>">
-                                                                <input type="hidden" name="back" value="/kitchen/status">
-                                                                <button type="submit" class="btn-serve">เสิร์ฟแล้ว</button>
-                                                            </form>
-                                                            <form method="POST" action="/kitchen/item/<%= dish.order_item_id %>/status" data-async-status onsubmit="return busySubmit(this, 'กำลังย้อนกลับ...');">
-                                                                <input type="hidden" name="to" value="cooking">
-                                                                <input type="hidden" name="table_id" value="<%= dish.table_id %>">
-                                                                <input type="hidden" name="back" value="/kitchen/status">
-                                                                <button type="submit" class="btn-back-step">ย้อนกลับไปกำลังปรุง</button>
-                                                            </form>
+                                                            <% if (staffRole === 'serve') { %>
+                                                                <form method="POST" action="/kitchen/item/<%= dish.order_item_id %>/status" data-async-status onsubmit="return busySubmit(this, 'กำลังบันทึก...');">
+                                                                    <input type="hidden" name="to" value="served">
+                                                                    <input type="hidden" name="table_id" value="<%= dish.table_id %>">
+                                                                    <input type="hidden" name="back" value="/kitchen/status">
+                                                                    <button type="submit" class="btn-serve">เสิร์ฟแล้ว</button>
+                                                                </form>
+                                                            <% } else { %>
+                                                                <form method="POST" action="/kitchen/item/<%= dish.order_item_id %>/status" data-async-status onsubmit="return busySubmit(this, 'กำลังย้อนกลับ...');">
+                                                                    <input type="hidden" name="to" value="cooking">
+                                                                    <input type="hidden" name="table_id" value="<%= dish.table_id %>">
+                                                                    <input type="hidden" name="back" value="/kitchen/status">
+                                                                    <button type="submit" class="btn-back-step">ย้อนกลับไปกำลังปรุง</button>
+                                                                </form>
+                                                            <% } %>
                                                         </div>
                                                     <% } %>
                                                 </article>
@@ -367,5 +396,13 @@
     })();
 </script>
     <script src="/js/live-updates.js" data-global="true"></script>
+    <% if (isLoginRequired) { %>
+    <script>
+        const kitchenLoginModal = document.getElementById('kitchen-login-modal');
+        if (kitchenLoginModal && kitchenLoginModal.dataset.autoOpen === 'true') {
+            kitchenLoginModal.showModal();
+        }
+    </script>
+    <% } %>
 </body>
 </html>

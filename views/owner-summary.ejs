@@ -36,7 +36,7 @@
         <% if (items.length > 0) { %>
             <section class="food-list" aria-label="รายการอาหารและผู้หาร">
                 <% items.forEach((item) => {
-                    const isLocked = ['served', 'cancelled'].includes(String(item.status || '').toLowerCase());
+                    const isLocked = String(item.status || '').toLowerCase() === 'cancelled';
                 %>
                     <article class="food-card">
                         <div class="food-image-wrap">
@@ -77,7 +77,7 @@
                                     <%= isLocked ? 'แก้ไม่ได้' : 'แก้ไข' %>
                                 </button>
                             </div>
-                            <% if (isLocked) { %><p class="food-locked-note">รายการนี้เสิร์ฟแล้ว จึงแก้ผู้หารไม่ได้</p><% } %>
+                            <% if (isLocked) { %><p class="food-locked-note">รายการนี้ยกเลิกแล้ว จึงแก้ผู้หารไม่ได้</p><% } %>
                         </div>
                     </article>
                 <% }); %>

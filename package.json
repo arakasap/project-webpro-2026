@@ -11,6 +11,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@napi-rs/canvas": "^1.0.11",
     "cookie-parser": "^1.4.7",
     "ejs": "^6.0.1",
     "express": "^5.2.1",

@@ -10,10 +10,15 @@
 </head>
 <body class="staff-ui staff-kitchen">
 <nav class="sidebar">
-    <a class="staff-brand-link" href="/kitchen">ไอทีม่วนแจ่ม <span>STAFF</span></a>
-    <a href="/kitchen" class="<%= page === 'kitchen' ? 'active' : '' %>">ดูรายละเอียด</a>
-    <a href="/kitchen/orders" class="<%= page === 'orders' ? 'active' : '' %>">ออเดอร์ที่ต้องทำ</a>
+    <a class="staff-brand-link" href="<%= staffRole === 'serve' ? '/orders' : '/kitchen' %>">ไอทีม่วนแจ่ม <span>STAFF</span></a>
+    <a href="<%= staffRole === 'serve' ? '/orders' : '/kitchen' %>" class="<%= page === 'kitchen' || (staffRole === 'serve' && page === 'orders') ? 'active' : '' %>">ดูรายละเอียด</a>
+    <% if (staffRole === 'kitchen') { %>
+        <a href="/kitchen/orders" class="<%= page === 'orders' ? 'active' : '' %>">ออเดอร์ที่ต้องทำ</a>
+    <% } %>
     <a href="/kitchen/status" class="<%= page === 'status' ? 'active' : '' %>">อัพเดทสถานะ</a>
+    <form class="staff-logout-form" method="POST" action="/kitchen/logout">
+        <button class="staff-logout" type="submit">ออกจากระบบ</button>
+    </form>
 </nav>
 <div class="kitchen-container">
     <header class="kitchen-header">
@@ -26,6 +31,8 @@
             <div class="alert">ข้อมูลไม่ถูกต้อง</div>
         <% } else if (msg === 'changed') { %>
             <div class="alert">สถานะรายการเปลี่ยนไปแล้ว</div>
+        <% } else if (msg === 'forbidden') { %>
+            <div class="alert">บัญชีนี้ไม่มีสิทธิ์ทำรายการดังกล่าว</div>
         <% } %>
 
         <div class="section-title sec-ordered">รอรับ (<%= ordered.length %>)</div>
@@ -40,12 +47,14 @@
                                 <span class="dish-note">หมายเหตุ: <%= item.note %></span>
                             <% } %>
                         </div>
+                        <% if (staffRole === 'kitchen') { %>
                         <div class="dish-actions">
                             <form method="POST" action="/kitchen/accept" onsubmit="return busySubmit(this, 'กำลังรับ...');">
                                 <input type="hidden" name="ids" value="<%= item.order_item_id %>">
                                 <button type="submit" class="btn-accept">รับรายการอาหาร</button>
                             </form>
                         </div>
+                        <% } %>
                     </div>
                 </section>
             <% }); %>
@@ -66,6 +75,7 @@
                                 <span class="dish-note">หมายเหตุ: <%= item.note %></span>
                             <% } %>
                         </div>
+                        <% if (staffRole === 'kitchen') { %>
                         <div class="dish-actions">
                             <form method="POST" action="/kitchen/item/<%= item.order_item_id %>/status" onsubmit="return askReason(this);">
                                 <input type="hidden" name="to" value="cancelled">
@@ -74,6 +84,7 @@
                                 <button type="submit" class="btn-cancel">ยกเลิก</button>
                             </form>
                         </div>
+                        <% } %>
                     </div>
                 </section>
             <% }); %>
@@ -95,16 +106,19 @@
                             <% } %>
                         </div>
                         <div class="dish-actions">
-                            <form method="POST" action="/kitchen/item/<%= item.order_item_id %>/status" onsubmit="return busySubmit(this, 'กำลังบันทึก...');">
-                                <input type="hidden" name="to" value="served">
-                                <input type="hidden" name="table_id" value="<%= table.table_id %>">
-                                <button type="submit" class="btn-serve">เสิร์ฟแล้ว</button>
-                            </form>
-                            <form method="POST" action="/kitchen/item/<%= item.order_item_id %>/status" onsubmit="return busySubmit(this, 'กำลังบันทึก...');">
-                                <input type="hidden" name="to" value="cooking">
-                                <input type="hidden" name="table_id" value="<%= table.table_id %>">
-                                <button type="submit" class="btn-back-step">ย้อนกลับ</button>
-                            </form>
+                            <% if (staffRole === 'serve') { %>
+                                <form method="POST" action="/kitchen/item/<%= item.order_item_id %>/status" onsubmit="return busySubmit(this, 'กำลังบันทึก...');">
+                                    <input type="hidden" name="to" value="served">
+                                    <input type="hidden" name="table_id" value="<%= table.table_id %>">
+                                    <button type="submit" class="btn-serve">เสิร์ฟแล้ว</button>
+                                </form>
+                            <% } else { %>
+                                <form method="POST" action="/kitchen/item/<%= item.order_item_id %>/status" onsubmit="return busySubmit(this, 'กำลังย้อนกลับ...');">
+                                    <input type="hidden" name="to" value="cooking">
+                                    <input type="hidden" name="table_id" value="<%= table.table_id %>">
+                                    <button type="submit" class="btn-back-step">ย้อนกลับ</button>
+                                </form>
+                            <% } %>
                         </div>
                     </div>
                 </section>

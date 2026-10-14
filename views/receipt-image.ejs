@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ใบเสร็จรับเงิน · โต๊ะ <%= tableNumber %></title>
+    <link rel="stylesheet" href="/css/receipt-image.css">
+</head>
+<body>
+    <main class="receipt-viewer">
+        <img
+            class="receipt-image"
+            src="data:image/png;base64,<%= imageData %>"
+            alt="ใบเสร็จรับเงิน โต๊ะ <%= tableNumber %>"
+        >
+        <nav class="receipt-actions" aria-label="การดำเนินการกับใบเสร็จ">
+            <button type="button" onclick="window.print()">พิมพ์ใบเสร็จ</button>
+            <a href="data:image/png;base64,<%= imageData %>" download="<%= fileName %>">บันทึกรูปใบเสร็จ</a>
+        </nav>
+    </main>
+    <script>
+        if (window.opener && !window.opener.closed) {
+            window.opener.location.replace('/cashier');
+        }
+    </script>
+</body>
+</html>

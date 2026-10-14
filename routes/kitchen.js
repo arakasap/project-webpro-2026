@@ -9,7 +9,135 @@ function createKitchenRouter({ db, notifyOrderUpdate }) {
     // พนักงานเสิร์ฟกดได้แบบเดียว: พร้อมเสิร์ฟ -> เสิร์ฟแล้ว (ใช้ที่หน้ารายละเอียดคำสั่งซื้อ)
     const SERVE_STEP = { served: 'ready' };
     // ข้อความแจ้งเตือนที่อนุญาตให้แสดงผ่าน query msg (กันการพิมพ์ค่าดิบจากผู้ใช้)
-    const KITCHEN_MSG = ['taken', 'invalid', 'changed'];
+    const KITCHEN_MSG = ['taken', 'invalid', 'changed', 'forbidden'];
+
+    function kitchenLoginViewData(error) {
+        return {
+            bills: [],
+            dishes: [],
+            tables: [],
+            msg: '',
+            mode: 'kitchen',
+            page: 'kitchen',
+            staffRole: null,
+            title: 'หน้าครัว',
+            loginRequired: true,
+            loginError: error
+        };
+    }
+
+    router.get('/kitchen/login', (req, res) => {
+        res.redirect('/kitchen');
+    });
+
+    function respondLoginError(req, res, status, error) {
+        if ((req.get('accept') || '').includes('application/json')) {
+            return res.status(status).json({ error });
+        }
+        return res.status(status).render('kitchen', kitchenLoginViewData(error));
+    }
+
+    router.post('/kitchen/login', (req, res) => {
+        const password = typeof req.body.password === 'string' ? req.body.password : '';
+        if (!password) {
+            return respondLoginError(req, res, 400, 'กรุณากรอกรหัสพนักงาน');
+        }
+
+        db.all(
+            `SELECT employee_id, name, LOWER(TRIM(role)) AS role
+             FROM EMPLOYEES
+             WHERE password = ? AND LOWER(TRIM(role)) IN ('kitchen', 'serve')
+             LIMIT 2`,
+            [password],
+            (err, employees) => {
+                if (err) {
+                    console.error('Error authenticating kitchen staff:', err.message);
+                    return respondLoginError(req, res, 500, 'ไม่สามารถตรวจสอบรหัสได้ กรุณาลองอีกครั้ง');
+                }
+                if (!employees || employees.length !== 1) {
+                    return respondLoginError(req, res, 401, 'รหัสไม่ถูกต้อง หรือไม่พบสิทธิ์เข้าหน้าครัว');
+                }
+
+                const employee = employees[0];
+                req.session.regenerate((sessionErr) => {
+                    if (sessionErr) {
+                        console.error('Error creating kitchen staff session:', sessionErr.message);
+                        return respondLoginError(req, res, 500, 'ไม่สามารถเข้าสู่ระบบได้ กรุณาลองอีกครั้ง');
+                    }
+                    req.session.kitchenStaff = { employeeId: employee.employee_id };
+                    req.session.save((saveErr) => {
+                        if (saveErr) {
+                            console.error('Error saving kitchen staff session:', saveErr.message);
+                            return respondLoginError(req, res, 500, 'ไม่สามารถเข้าสู่ระบบได้ กรุณาลองอีกครั้ง');
+                        }
+                        const redirect = employee.role === 'serve' ? '/orders' : '/kitchen';
+                        if ((req.get('accept') || '').includes('application/json')) {
+                            return res.json({ redirect });
+                        }
+                        res.redirect(redirect);
+                    });
+                });
+            }
+        );
+    });
+
+    router.post('/kitchen/logout', (req, res) => {
+        req.session.destroy((err) => {
+            if (err) {
+                console.error('Error ending kitchen staff session:', err.message);
+                return res.status(500).send('ไม่สามารถออกจากระบบได้');
+            }
+            res.clearCookie('connect.sid');
+            res.redirect('/kitchen');
+        });
+    });
+
+    router.use((req, res, next) => {
+        const isKitchenRoute = req.path.startsWith('/kitchen') || req.path === '/orders';
+        if (!isKitchenRoute) return next();
+
+        const staffSession = req.session.kitchenStaff;
+        if (!staffSession || !staffSession.employeeId) {
+            if (req.method === 'GET' && req.path === '/kitchen') {
+                return res.render('kitchen', kitchenLoginViewData(''));
+            }
+            return res.redirect('/kitchen');
+        }
+
+        db.get(
+            `SELECT employee_id, name, LOWER(TRIM(role)) AS role
+             FROM EMPLOYEES
+             WHERE employee_id = ? AND LOWER(TRIM(role)) IN ('kitchen', 'serve')`,
+            [staffSession.employeeId],
+            (err, employee) => {
+                if (err) {
+                    console.error('Error validating kitchen staff session:', err.message);
+                    return res.status(500).send('ไม่สามารถตรวจสอบสิทธิ์พนักงานได้');
+                }
+                if (!employee) {
+                    return req.session.destroy((destroyErr) => {
+                        if (destroyErr) console.error('Error clearing invalid kitchen session:', destroyErr.message);
+                        res.clearCookie('connect.sid');
+                        res.redirect('/kitchen');
+                    });
+                }
+
+                req.kitchenStaff = employee;
+                res.locals.staffRole = employee.role;
+
+                if (employee.role === 'serve' && req.path === '/kitchen') {
+                    return res.redirect('/orders');
+                }
+                if (employee.role === 'serve' && ['/kitchen/orders', '/kitchen/ordered'].includes(req.path)) {
+                    return res.redirect('/orders');
+                }
+                if (employee.role !== 'kitchen' && req.path === '/kitchen/accept') {
+                    return res.status(403).send('ไม่มีสิทธิ์รับรายการอาหาร');
+                }
+                next();
+            }
+        );
+    });
 
     function notifyOrderItems(itemIds) {
         const marks = itemIds.map(() => '?').join(',');
@@ -107,27 +235,20 @@ function createKitchenRouter({ db, notifyOrderUpdate }) {
             return res.redirect('/kitchen?msg=invalid');
         }
 
-        db.get("SELECT employee_id FROM EMPLOYEES WHERE role = 'kitchen' LIMIT 1", [], (err, emp) => {
-            if (err || !emp) {
-                console.error('Error finding kitchen employee:', err ? err.message : 'not found');
+        const marks = idList.map(() => '?').join(',');
+        const sqlUpdate = `UPDATE ORDER_ITEMS SET status = 'cooking', updated_by_employee_id = ?
+            WHERE order_item_id IN (${marks}) AND status = 'ordered'`;
+
+        db.run(sqlUpdate, [req.kitchenStaff.employee_id, ...idList], function (err) {
+            if (err) {
+                console.error('Error accepting kitchen order:', err.message);
                 return res.status(500).send('เกิดข้อผิดพลาดในการรับรายการอาหาร');
             }
-
-            const marks = idList.map(() => '?').join(',');
-            const sqlUpdate = `UPDATE ORDER_ITEMS SET status = 'cooking', updated_by_employee_id = ?
-                WHERE order_item_id IN (${marks}) AND status = 'ordered'`;
-
-            db.run(sqlUpdate, [emp.employee_id, ...idList], function (err) {
-                if (err) {
-                    console.error('Error accepting kitchen order:', err.message);
-                    return res.status(500).send('เกิดข้อผิดพลาดในการรับรายการอาหาร');
-                }
-                if (this.changes === 0) {
-                    return res.redirect('/kitchen?msg=taken');
-                }
-                notifyOrderItems(idList);
-                res.redirect('/kitchen/orders');
-            });
+            if (this.changes === 0) {
+                return res.redirect('/kitchen?msg=taken');
+            }
+            notifyOrderItems(idList);
+            res.redirect('/kitchen/orders');
         });
     });
 
@@ -310,26 +431,22 @@ function createKitchenRouter({ db, notifyOrderUpdate }) {
         // ยกเลิกต้องพิมพ์เหตุผลมาด้วย (เสิร์ฟแล้วห้ามยกเลิก)
         const isCancel = (to === ST.CANCELLED);
         const reason = String(req.body.reason || '').trim().slice(0, 200);
-        let stepMap = null;
-        if (Object.prototype.hasOwnProperty.call(KITCHEN_STEP, to)) stepMap = KITCHEN_STEP;
-        else if (Object.prototype.hasOwnProperty.call(SERVE_STEP, to)) stepMap = SERVE_STEP;
+        const isKitchen = req.kitchenStaff.role === 'kitchen';
+        const stepMap = isKitchen ? KITCHEN_STEP : SERVE_STEP;
         if (!Number.isInteger(itemId) || itemId <= 0) {
             return respondError('invalid', 400);
+        }
+        if (isCancel && !isKitchen) {
+            return respondError('forbidden', 403);
         }
         if (isCancel && reason === '') {
             return respondError('invalid', 400);
         }
-        if (!isCancel && !stepMap) {
+        if (!isCancel && !Object.prototype.hasOwnProperty.call(stepMap, to)) {
             return respondError('invalid', 400);
         }
 
-        db.get("SELECT employee_id FROM EMPLOYEES WHERE role = 'kitchen' LIMIT 1", [], (err, emp) => {
-            if (err || !emp) {
-                console.error('Error finding kitchen employee:', err ? err.message : 'not found');
-                if (wantsJson) return res.status(500).json({ error: 'server' });
-                return res.status(500).send('เกิดข้อผิดพลาดในการอัปเดตสถานะอาหาร');
-            }
-
+        {
             // ตอบกลับเหมือนกันทั้งสองทาง: ไม่เปลี่ยนแถว = สถานะไม่ตรงแล้ว
             const afterUpdate = function (err) {
                 if (err) {
@@ -347,13 +464,13 @@ function createKitchenRouter({ db, notifyOrderUpdate }) {
 
             if (isCancel) {
                 db.run("UPDATE ORDER_ITEMS SET status = 'cancelled', cancel_reason = ?, updated_by_employee_id = ? WHERE order_item_id = ? AND status IN ('ordered', 'cooking')",
-                    [reason, emp.employee_id, itemId], afterUpdate);
+                    [reason, req.kitchenStaff.employee_id, itemId], afterUpdate);
             } else {
                 const from = stepMap[to];
                 db.run('UPDATE ORDER_ITEMS SET status = ?, updated_by_employee_id = ? WHERE order_item_id = ? AND status = ?',
-                    [to, emp.employee_id, itemId, from], afterUpdate);
+                    [to, req.kitchenStaff.employee_id, itemId, from], afterUpdate);
             }
-        });
+        }
     });
 
     // 8.7 หน้ารายละเอียดคำสั่งซื้อ (พนักงานเสิร์ฟ/แคชเชียร์ดูได้: เห็นทุกบิล บิลใหม่ขึ้นก่อน)

@@ -1,5 +1,6 @@
 const express = require('express');
 const { BILLABLE_ORDER_ITEM_SQL } = require('../utils/order-billing');
+const { renderReceiptPng } = require('../utils/receipt-canvas');
 
 function createCashierRouter({ db, promptpayNo, notifyOrderUpdate }) {
     const router = express.Router();
@@ -323,6 +324,85 @@ function createCashierRouter({ db, promptpayNo, notifyOrderUpdate }) {
         });
     });
 
+    router.get('/cashier/receipt/:session_id', (req, res) => {
+        const sessionId = req.params.session_id;
+
+        db.get(
+            `SELECT s.session_id, s.created_at, t.table_number,
+                    COALESCE(
+                        (SELECT MAX(p.paid_at) FROM PAYMENTS p WHERE p.session_id = s.session_id),
+                        s.created_at
+                    ) AS issued_at
+             FROM SESSIONS s
+             JOIN TABLES t ON t.table_id = s.table_id
+             WHERE s.session_id = ? AND LOWER(TRIM(s.status)) = 'completed'`,
+            [sessionId],
+            (sessionErr, session) => {
+                if (sessionErr) {
+                    console.error('[Receipt Error] SESSION LOOKUP:', sessionErr.message);
+                    return res.status(500).send('ไม่สามารถเปิดใบเสร็จได้');
+                }
+                if (!session) return res.status(404).send('ไม่พบรายการใบเสร็จ');
+
+                db.all(
+                    `SELECT oi.order_item_id, mi.name, mi.price, oi.qty
+                     FROM ORDER_ITEMS oi
+                     JOIN ORDERS o ON o.order_id = oi.order_id
+                     JOIN MENU_ITEMS mi ON mi.menu_item_id = oi.menu_item_id
+                     WHERE o.session_id = ? AND ${BILLABLE_ORDER_ITEM_SQL}
+                     ORDER BY oi.order_item_id`,
+                    [sessionId],
+                    (itemsErr, items) => {
+                        if (itemsErr) {
+                            console.error('[Receipt Error] ITEM LOOKUP:', itemsErr.message);
+                            return res.status(500).send('ไม่สามารถดึงรายการอาหารสำหรับใบเสร็จได้');
+                        }
+
+                        db.all(
+                            `SELECT p.payment_id, p.amount, p.method, p.status, p.paid_at,
+                                    COALESCE(su.name, 'ชำระรวมทั้งโต๊ะ') AS payer_name
+                             FROM PAYMENTS p
+                             LEFT JOIN SESSION_USERS su ON su.user_id = p.user_id
+                             WHERE p.session_id = ?
+                             ORDER BY p.payment_id`,
+                            [sessionId],
+                            (paymentsErr, payments) => {
+                                if (paymentsErr) {
+                                    console.error('[Receipt Error] PAYMENT LOOKUP:', paymentsErr.message);
+                                    return res.status(500).send('ไม่สามารถดึงข้อมูลการชำระเงินสำหรับใบเสร็จได้');
+                                }
+
+                                const receiptItems = (items || []).map((item) => ({
+                                    ...item,
+                                    lineTotal: (Number(item.price) || 0) * (Number(item.qty) || 0)
+                                }));
+                                const total = receiptItems.reduce((sum, item) => sum + item.lineTotal, 0);
+                                const receiptPayments = payments || [];
+
+                                const receiptImage = renderReceiptPng({
+                                    session,
+                                    items: receiptItems,
+                                    payments: receiptPayments,
+                                    total,
+                                    isPaid: receiptPayments.length > 0
+                                        && receiptPayments.every((payment) => String(payment.status).toLowerCase() === 'paid')
+                                });
+                                res
+                                    .status(200)
+                                    .set('Cache-Control', 'private, no-store')
+                                    .render('receipt-image', {
+                                        imageData: receiptImage.toString('base64'),
+                                        fileName: `receipt-${session.session_id}.png`,
+                                        tableNumber: session.table_number
+                                    });
+                            }
+                        );
+                    }
+                );
+            }
+        );
+    });
+
     // บันทึกยอดชำระเงินและปิด session ของโต๊ะ
     router.post('/cashier/table/:table_id/finish-payment', (req, res) => {
         const tableId = req.params.table_id;
@@ -342,7 +422,7 @@ function createCashierRouter({ db, promptpayNo, notifyOrderUpdate }) {
             }
 
             db.get(
-                `SELECT s.session_id, s.table_id
+                `SELECT s.session_id, s.table_id, s.created_at, t.table_number
                  FROM SESSIONS s
                  JOIN TABLES t ON t.table_id = s.table_id
                  WHERE CAST(s.table_id AS TEXT) = CAST(? AS TEXT)
@@ -360,13 +440,13 @@ function createCashierRouter({ db, promptpayNo, notifyOrderUpdate }) {
                     }
 
                     db.all(
-                        'SELECT user_id, is_paid FROM SESSION_USERS WHERE session_id = ?',
+                        'SELECT user_id, name, is_paid FROM SESSION_USERS WHERE session_id = ?',
                         [sessionRow.session_id],
                         (usersErr, users) => {
                             if (usersErr) return failTransaction('USER LOOKUP', usersErr);
 
                             db.all(
-                                `SELECT oi.order_item_id, oi.qty, mi.price,
+                                `SELECT oi.order_item_id, oi.qty, mi.name, mi.price,
                                         GROUP_CONCAT(DISTINCT su.user_id) AS owner_ids
                                  FROM ORDER_ITEMS oi
                                  JOIN ORDERS o ON o.order_id = oi.order_id
@@ -422,6 +502,39 @@ function createCashierRouter({ db, promptpayNo, notifyOrderUpdate }) {
                                         });
                                     }
 
+                                    const total = (items || []).reduce((sum, item) => (
+                                        sum + (Number(item.price) || 0) * (Number(item.qty) || 0)
+                                    ), 0);
+                                    const receiptPayments = paymentRows.map((payment) => {
+                                        const payer = users.find((user) => String(user.user_id) === String(payment.userId));
+                                        return {
+                                            payer_name: payer ? payer.name : 'ชำระรวมทั้งโต๊ะ',
+                                            amount: payment.amount,
+                                            method: 'PromptPay',
+                                            status: payment.status
+                                        };
+                                    });
+                                    let receiptImage;
+                                    try {
+                                        receiptImage = renderReceiptPng({
+                                            session: {
+                                                session_id: sessionRow.session_id,
+                                                table_number: sessionRow.table_number,
+                                                issued_at: new Date().toISOString()
+                                            },
+                                            items: (items || []).map((item) => ({
+                                                ...item,
+                                                lineTotal: (Number(item.price) || 0) * (Number(item.qty) || 0)
+                                            })),
+                                            payments: receiptPayments,
+                                            total,
+                                            isPaid: receiptPayments.length > 0
+                                                && receiptPayments.every((payment) => payment.status === 'paid')
+                                        });
+                                    } catch (receiptErr) {
+                                        return failTransaction('RECEIPT RENDER', receiptErr);
+                                    }
+
                                     const insertPayment = (index) => {
                                         if (index >= paymentRows.length) return closeTable();
 
@@ -453,15 +566,83 @@ function createCashierRouter({ db, promptpayNo, notifyOrderUpdate }) {
                                                     (tableUpdateErr) => {
                                                         if (tableUpdateErr) return failTransaction('TABLE UPDATE', tableUpdateErr);
 
-                                                        db.run('COMMIT', (commitErr) => {
-                                                            if (commitErr) return failTransaction('COMMIT', commitErr);
-                                                            notifyOrderUpdate(sessionRow.session_id);
-                                                            res.redirect('/cashier');
-                                                        });
+                                                        clearClosedSessionData(0);
                                                     }
                                                 );
                                             }
                                         );
+                                    };
+
+                                    const cleanupSteps = [
+                                        {
+                                            stage: 'PAYMENT CLEANUP',
+                                            sql: 'DELETE FROM PAYMENTS WHERE session_id = ?'
+                                        },
+                                        {
+                                            stage: 'OWNER CLEANUP',
+                                            sql: `DELETE FROM ORDER_ITEM_OWNERS
+                                                  WHERE order_item_id IN (
+                                                      SELECT oi.order_item_id
+                                                      FROM ORDER_ITEMS oi
+                                                      JOIN ORDERS o ON o.order_id = oi.order_id
+                                                      WHERE o.session_id = ?
+                                                  )`
+                                        },
+                                        {
+                                            stage: 'ORDER ITEM CLEANUP',
+                                            sql: `DELETE FROM ORDER_ITEMS
+                                                  WHERE order_id IN (SELECT order_id FROM ORDERS WHERE session_id = ?)`
+                                        },
+                                        {
+                                            stage: 'ORDER CLEANUP',
+                                            sql: 'DELETE FROM ORDERS WHERE session_id = ?'
+                                        },
+                                        {
+                                            stage: 'USER CLEANUP',
+                                            sql: 'DELETE FROM SESSION_USERS WHERE session_id = ?'
+                                        },
+                                        {
+                                            stage: 'SESSION CLEANUP',
+                                            sql: `DELETE FROM SESSIONS
+                                                  WHERE session_id = ? AND LOWER(TRIM(status)) = 'completed'`
+                                        }
+                                    ];
+
+                                    const clearClosedSessionData = (index) => {
+                                        if (index >= cleanupSteps.length) return commitPayment();
+
+                                        const step = cleanupSteps[index];
+                                        db.run(step.sql, [sessionRow.session_id], function (cleanupErr) {
+                                            if (cleanupErr) return failTransaction(step.stage, cleanupErr);
+                                            if (step.stage === 'SESSION CLEANUP' && this.changes !== 1) {
+                                                return failTransaction(
+                                                    step.stage,
+                                                    new Error('Completed session changed before cleanup finished.')
+                                                );
+                                            }
+                                            clearClosedSessionData(index + 1);
+                                        });
+                                    };
+
+                                    const commitPayment = () => {
+                                        db.run('COMMIT', (commitErr) => {
+                                            if (commitErr) return failTransaction('COMMIT', commitErr);
+                                            notifyOrderUpdate(sessionRow.session_id);
+                                            res
+                                                .status(200)
+                                                .set('Cache-Control', 'private, no-store')
+                                                .render('receipt-image', {
+                                                    imageData: receiptImage.toString('base64'),
+                                                    fileName: `receipt-${sessionRow.session_id}.png`,
+                                                    tableNumber: sessionRow.table_number
+                                                }, (renderErr, html) => {
+                                                    if (renderErr) {
+                                                        console.error('[Finish Payment Error] RECEIPT RESPONSE:', renderErr.message);
+                                                        return res.status(500).send('ชำระเงินและล้างข้อมูลโต๊ะสำเร็จ แต่เปิดใบเสร็จไม่สำเร็จ');
+                                                    }
+                                                    res.send(html);
+                                                });
+                                        });
                                     };
 
                                     insertPayment(0);
