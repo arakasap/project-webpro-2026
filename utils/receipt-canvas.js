@@ -1,4 +1,10 @@
-const { createCanvas } = require('@napi-rs/canvas');
+const { createCanvas, GlobalFonts } = require('@napi-rs/canvas');
+const path = require('path');
+
+// 1. ลงทะเบียนฟอนต์ภาษาไทยจากไฟล์ในโปรเจกต์ (แนะนำให้วางไฟล์ .ttf ไว้ในโฟลเดอร์ fonts ของโปรเจกต์)
+GlobalFonts.registerFromPath(path.join(__dirname, 'fonts', 'Prompt-Regular.ttf'), 'Prompt');
+GlobalFonts.registerFromPath(path.join(__dirname, 'fonts', 'Prompt-SemiBold.ttf'), 'Prompt'); // หรือใช้ไฟล์ Bold
+GlobalFonts.registerFromPath(path.join(__dirname, 'fonts', 'Prompt-Bold.ttf'), 'PromptBold');
 
 const CANVAS_WIDTH = 640;
 const HORIZONTAL_PADDING = 44;
@@ -87,17 +93,17 @@ function renderReceiptPng({ session, items, payments, total, isPaid }) {
     y += 54;
 
     context.fillStyle = '#17251c';
-    context.font = '32px monospace';
+    context.font = '700 32px Prompt, PromptBold'; // เปลี่ยนจาก monospace เป็น Prompt
     context.fillText('ไอทีม่วนแจ่ม', center, y);
     y += 43;
 
     context.fillStyle = '#166534';
-    context.font = '24px monospace';
+    context.font = '700 24px Prompt, PromptBold';
     context.fillText(isPaid ? 'ใบเสร็จรับเงิน' : 'สรุปการชำระเงิน', center, y);
     y += 36;
 
     context.fillStyle = '#526257';
-    context.font = '17px monospace';
+    context.font = '400 17px Prompt';
     context.fillText(`เลขที่รายการ ${session.session_id}`, center, y);
     y += 35;
     y = drawSeparator(context, left, right, y);
@@ -105,25 +111,25 @@ function renderReceiptPng({ session, items, payments, total, isPaid }) {
     y = drawMetaRow(context, 'โต๊ะ', String(session.table_number), left, right, y);
     y = drawMetaRow(context, 'วันที่', formatDate(session.issued_at), left, right, y);
     context.fillStyle = isPaid ? '#166534' : '#92400e';
-    context.font = '18px monospace';
+    context.font = '600 18px Prompt, PromptBold';
     context.textAlign = 'right';
     context.fillText(isPaid ? 'ชำระครบแล้ว' : 'มียอดรอชำระ', right, y);
     context.fillStyle = '#526257';
     context.textAlign = 'left';
-    context.font = '18px monospace';
+    context.font = '400 18px Prompt';
     context.fillText('สถานะ', left, y);
     y += 36;
     y = drawSeparator(context, left, right, y);
 
     context.fillStyle = '#526257';
-    context.font = '17px monospace';
+    context.font = '700 17px Prompt, PromptBold';
     context.textAlign = 'left';
     context.fillText('รายการ', left, y);
     y += 30;
 
     if (items.length === 0) {
         context.fillStyle = '#526257';
-        context.font = '17px monospace';
+        context.font = '400 17px Prompt';
         context.fillText('ไม่มีรายการอาหารในบิลนี้', left, y);
         y += 32;
     } else {
@@ -132,23 +138,23 @@ function renderReceiptPng({ session, items, payments, total, isPaid }) {
             const rowStart = y;
 
             context.fillStyle = '#17251c';
-            context.font = '18px monospace';
+            context.font = '600 18px Prompt, PromptBold';
             context.textAlign = 'left';
             nameLines.forEach((line, index) => {
                 context.fillText(line, left, rowStart + index * 25);
             });
 
             context.fillStyle = '#526257';
-            context.font = '15px monospace';
+            context.font = '400 15px Prompt';
             context.fillText(`${formatMoney(item.price)} บาท/รายการ`, left, rowStart + nameLines.length * 25);
 
             context.fillStyle = '#17251c';
-            context.font = '17px monospace';
+            context.font = '400 17px Prompt';
             context.textAlign = 'center';
             context.fillText(`× ${item.qty}`, 454, rowStart + 1);
 
             context.textAlign = 'right';
-            context.font = '17px monospace';
+            context.font = '600 17px Prompt, PromptBold';
             context.fillText(formatMoney(item.lineTotal), right, rowStart + 1);
             y += nameLines.length * 25 + 48;
         });
@@ -157,23 +163,23 @@ function renderReceiptPng({ session, items, payments, total, isPaid }) {
     y = drawSeparator(context, left, right, y);
     context.fillStyle = '#17251c';
     context.textAlign = 'left';
-    context.font = '700 19px monospace';
+    context.font = '700 19px Prompt, PromptBold';
     context.fillText('ยอดรวมสุทธิ', left, y + 1);
     context.textAlign = 'right';
-    context.font = '700 28px monospace';
+    context.font = '700 28px Prompt, PromptBold';
     context.fillText(`${formatMoney(total)} บาท`, right, y - 4);
     y += 49;
     y = drawSeparator(context, left, right, y);
 
     context.fillStyle = '#526257';
     context.textAlign = 'left';
-    context.font = '700 17px monospace';
+    context.font = '700 17px Prompt, PromptBold';
     context.fillText('การชำระเงิน', left, y);
     y += 31;
 
     if (payments.length === 0) {
         context.fillStyle = '#526257';
-        context.font = '400 17px monospace';
+        context.font = '400 17px Prompt';
         context.fillText('ไม่พบข้อมูลการชำระเงิน', left, y);
         y += 32;
     } else {
@@ -183,13 +189,13 @@ function renderReceiptPng({ session, items, payments, total, isPaid }) {
 
             context.fillStyle = '#17251c';
             context.textAlign = 'left';
-            context.font = '600 17px monospace';
+            context.font = '600 17px Prompt, PromptBold';
             payerLines.forEach((line, index) => {
                 context.fillText(line, left, rowStart + index * 24);
             });
 
             context.fillStyle = '#526257';
-            context.font = '400 15px monospace';
+            context.font = '400 15px Prompt';
             context.fillText(
                 `${payment.method} · ${String(payment.status).toLowerCase() === 'paid' ? 'ชำระแล้ว' : 'รอชำระ'}`,
                 left,
@@ -198,7 +204,7 @@ function renderReceiptPng({ session, items, payments, total, isPaid }) {
 
             context.fillStyle = '#17251c';
             context.textAlign = 'right';
-            context.font = '600 17px monospace';
+            context.font = '600 17px Prompt, PromptBold';
             context.fillText(formatMoney(payment.amount), right, rowStart + 1);
             y += payerLines.length * 24 + 40;
         });
@@ -207,12 +213,12 @@ function renderReceiptPng({ session, items, payments, total, isPaid }) {
     y = drawSeparator(context, left, right, y);
     context.fillStyle = '#166534';
     context.textAlign = 'center';
-    context.font = '700 20px monospace';
+    context.font = '700 20px Prompt, PromptBold';
     context.fillText('ขอบคุณที่อุดหนุน', center, y + 18);
     y += 56;
 
     context.fillStyle = '#526257';
-    context.font = '400 13px monospace';
+    context.font = '400 13px Prompt';
     context.fillText('ไอทีม่วนแจ่ม · RECEIPT', center, y);
 
     const output = createCanvas(CANVAS_WIDTH, y + 48);
@@ -223,11 +229,11 @@ function renderReceiptPng({ session, items, payments, total, isPaid }) {
 function drawMetaRow(context, label, value, left, right, y) {
     context.textBaseline = 'top';
     context.textAlign = 'left';
-    context.font = '400 18px monospace';
+    context.font = '400 18px Prompt';
     context.fillStyle = '#526257';
     context.fillText(label, left, y);
     context.textAlign = 'right';
-    context.font = '600 18px monospace';
+    context.font = '600 18px Prompt, PromptBold';
     context.fillStyle = '#17251c';
 
     const valueLines = wrapText(context, value, CONTENT_WIDTH - 100);
