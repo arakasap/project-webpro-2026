@@ -377,13 +377,13 @@ body {
 
 .bottom-bar {
     position: fixed;
+    max-width: 420px;
     bottom: 0;
     left: 50%;
     z-index: 99;
     display: flex;
     gap: 10px;
     width: 100%;
-    max-width: 540px;
     box-sizing: border-box;
     padding: 12px max(15px, env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) max(15px, env(safe-area-inset-left));
     border-top: 1px solid var(--border-color);

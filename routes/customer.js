@@ -12,6 +12,41 @@ function createCustomerRouter({ db, events, notifyOrderUpdate, cartHelpers }) {
         getSessionCartSnapshot
     } = cartHelpers;
 
+    function renderStartPage(res, { sessionId, tableId, tableNumber }) {
+        const render = (existingUsers) => {
+            db.get(`
+                SELECT name, image_url
+                FROM MENU_ITEMS
+                WHERE is_available = 1 AND image_url IS NOT NULL AND TRIM(image_url) != ''
+                ORDER BY menu_item_id
+                LIMIT 1
+            `, [], (menuErr, featuredItem) => {
+                if (menuErr) featuredItem = null;
+
+                res.render('index', {
+                    sessionId,
+                    tableId,
+                    tableNumber,
+                    shopName: "ไอทีม่วนแจ่ม",
+                    featuredItem,
+                    existingUsers,
+                    instructions: [
+                        "ใส่ชื่อเล่นของคุณและเริ่มสั่งอาหาร",
+                        "เพิ่มรายการได้ทุกเมื่อ",
+                        "แยกจ่ายเงินและจ่ายตามที่คุณต้องการ"
+                    ]
+                });
+            });
+        };
+
+        if (!sessionId) return render([]);
+
+        db.all('SELECT * FROM SESSION_USERS WHERE session_id = ?', [sessionId], (err, existingUsers) => {
+            if (err) existingUsers = [];
+            render(existingUsers);
+        });
+    }
+
     router.get(['/api/live/events', '/api/order-status/events'], (req, res) => {
         const sessionId = String(req.query.session_id || '');
         const global = req.query.global === '1';
@@ -38,32 +73,40 @@ function createCustomerRouter({ db, events, notifyOrderUpdate, cartHelpers }) {
 
     router.get('/', (req, res) => {
         const sessionId = req.query.session_id || 1;
-
-        db.all('SELECT * FROM SESSION_USERS WHERE session_id = ?', [sessionId], (err, existingUsers) => {
-            if (err) existingUsers = [];
-
-            db.get(`
-                SELECT name, image_url
-                FROM MENU_ITEMS
-                WHERE is_available = 1 AND image_url IS NOT NULL AND TRIM(image_url) != ''
-                ORDER BY menu_item_id
-                LIMIT 1
-            `, [], (menuErr, featuredItem) => {
-                if (menuErr) featuredItem = null;
-
-                res.render('index', {
-                    sessionId: sessionId,
-                    shopName: "ไอทีม่วนแจ่ม",
-                    featuredItem: featuredItem,
-                    existingUsers: existingUsers,
-                    instructions: [
-                        "ใส่ชื่อเล่นของคุณและเริ่มสั่งอาหาร",
-                        "เพิ่มรายการได้ทุกเมื่อ",
-                        "แยกจ่ายเงินและจ่ายตามที่คุณต้องการ"
-                    ]
-                });
-            });
+        renderStartPage(res, {
+            sessionId,
+            tableId: null,
+            tableNumber: sessionId
         });
+    });
+
+    router.get('/table/:table_number', (req, res) => {
+        const tableNumber = req.params.table_number.trim();
+        if (!tableNumber) return res.status(400).send('หมายเลขโต๊ะไม่ถูกต้อง');
+
+        db.get(
+            `SELECT t.table_id, t.table_number, s.session_id
+             FROM TABLES t
+             LEFT JOIN SESSIONS s
+               ON s.table_id = t.table_id AND LOWER(TRIM(s.status)) = 'active'
+             WHERE TRIM(t.table_number) = ?
+             ORDER BY s.session_id DESC
+             LIMIT 1`,
+            [tableNumber],
+            (err, table) => {
+                if (err) {
+                    console.error('Error loading table entry link:', err.message);
+                    return res.status(500).send('เกิดข้อผิดพลาดในการค้นหาโต๊ะ');
+                }
+                if (!table) return res.status(404).send('ไม่พบโต๊ะที่ระบุ');
+
+                renderStartPage(res, {
+                    sessionId: table.session_id || null,
+                    tableId: table.table_id,
+                    tableNumber: table.table_number
+                });
+            }
+        );
     });
 
     router.post('/join-session', (req, res) => {
@@ -78,37 +121,44 @@ function createCustomerRouter({ db, events, notifyOrderUpdate, cartHelpers }) {
         db.run(ensureTableSql, [targetTableId, String(targetTableId)], (err) => {
             if (err) console.log('Ensure table notice:', err.message);
 
-            db.get('SELECT session_id FROM SESSIONS WHERE table_id = ? AND LOWER(status) = "active"', [targetTableId], (err, activeSession) => {
-                if (err) {
-                    console.error('Error checking active session:', err.message);
-                    return res.status(500).send('เกิดข้อผิดพลาดในการตรวจสอบ Session');
-                }
+            db.get(
+                `SELECT session_id FROM SESSIONS
+                 WHERE table_id = ? AND LOWER(TRIM(status)) = 'active'
+                 ORDER BY session_id DESC
+                 LIMIT 1`,
+                [targetTableId],
+                (err, activeSession) => {
+                    if (err) {
+                        console.error('Error checking active session:', err.message);
+                        return res.status(500).send('เกิดข้อผิดพลาดในการตรวจสอบ Session');
+                    }
 
-                const saveUserAndRedirect = (sessionIdToUse) => {
-                    const sqlUser = `INSERT INTO SESSION_USERS (session_id, name, is_paid) VALUES (?, ?, 0)`;
-                    db.run(sqlUser, [sessionIdToUse, name.trim()], function (err) {
-                        if (err) {
-                            console.error('Error saving user:', err.message);
-                            return res.status(500).send('เกิดข้อผิดพลาดในการบันทึกข้อมูลผู้ใช้');
-                        }
-                        notifyOrderUpdate(sessionIdToUse);
-                        res.redirect(`/menu?session_id=${sessionIdToUse}&user_id=${this.lastID}`);
-                    });
-                };
+                    const saveUserAndRedirect = (sessionIdToUse) => {
+                        const sqlUser = `INSERT INTO SESSION_USERS (session_id, name, is_paid) VALUES (?, ?, 0)`;
+                        db.run(sqlUser, [sessionIdToUse, name.trim()], function (err) {
+                            if (err) {
+                                console.error('Error saving user:', err.message);
+                                return res.status(500).send('เกิดข้อผิดพลาดในการบันทึกข้อมูลผู้ใช้');
+                            }
+                            notifyOrderUpdate(sessionIdToUse);
+                            res.redirect(`/menu?session_id=${sessionIdToUse}&user_id=${this.lastID}`);
+                        });
+                    };
 
-                if (activeSession) {
-                    saveUserAndRedirect(activeSession.session_id);
-                } else {
-                    const createSessionSql = `INSERT INTO SESSIONS (table_id, status) VALUES (?, 'active')`;
-                    db.run(createSessionSql, [targetTableId], function (err) {
-                        if (err) {
-                            console.error('Error creating new session:', err.message);
-                            return res.status(500).send('เกิดข้อผิดพลาดในการสร้าง Session ใหม่: ' + err.message);
-                        }
-                        saveUserAndRedirect(this.lastID);
-                    });
+                    if (activeSession) {
+                        saveUserAndRedirect(activeSession.session_id);
+                    } else {
+                        const createSessionSql = `INSERT INTO SESSIONS (table_id, status) VALUES (?, 'active')`;
+                        db.run(createSessionSql, [targetTableId], function (err) {
+                            if (err) {
+                                console.error('Error creating new session:', err.message);
+                                return res.status(500).send('เกิดข้อผิดพลาดในการสร้าง Session ใหม่: ' + err.message);
+                            }
+                            saveUserAndRedirect(this.lastID);
+                        });
+                    }
                 }
-            });
+            );
         });
     });
 
@@ -116,13 +166,20 @@ function createCustomerRouter({ db, events, notifyOrderUpdate, cartHelpers }) {
     // 2. หน้าแสดงรายการอาหาร (Menu Page)
     // -----------------------------------------------------------------------------
     router.get('/menu', (req, res) => {
-        const { session_id, user_id } = req.query;
+    const { session_id, user_id } = req.query;
 
-        if (!session_id || !user_id) {
-            return res.redirect('/');
-        }
+    if (!session_id || !user_id) {
+        return res.redirect('/');
+    }
 
-        db.get('SELECT * FROM SESSION_USERS WHERE user_id = ?', [user_id], (err, user) => {
+    db.get(
+        `SELECT su.*, t.table_number
+         FROM SESSION_USERS su
+         JOIN SESSIONS s ON s.session_id = su.session_id
+         JOIN TABLES t ON t.table_id = s.table_id
+         WHERE su.user_id = ?`,
+        [user_id],
+        (err, user) => {
             if (err || !user) return res.status(400).send('ไม่พบข้อมูลผู้ใช้งาน');
 
             if (String(user.session_id) !== String(session_id)) {
@@ -138,19 +195,24 @@ function createCustomerRouter({ db, events, notifyOrderUpdate, cartHelpers }) {
                     db.all('SELECT * FROM MENU_ITEMS WHERE is_available = 1', [], (err, menuItems) => {
                         if (err) menuItems = [];
 
+                        // ตรวจสอบค่า table_number ถ้าไม่มีให้ใช้ session_id แทนแบบเดียวกับหน้า table-summary
+                        const tableNo = user && user.table_number ? user.table_number : session_id;
+
                         res.render('menu', {
                             user: user,
                             sessionUsers: sessionUsers,
                             categories: categories,
                             menuItems: menuItems,
+                            tableNo: tableNo,
                             sessionId: session_id,
                             userId: user_id
                         });
                     });
                 });
             });
-        });
-    });
+        }
+    );
+});
 
     // -----------------------------------------------------------------------------
     // Customer order status
@@ -595,10 +657,20 @@ function createCustomerRouter({ db, events, notifyOrderUpdate, cartHelpers }) {
             return res.redirect('/');
         }
 
-        db.get('SELECT * FROM SESSION_USERS WHERE user_id = ?', [user_id], (err, currentUser) => {
-            if (err || !currentUser) return res.redirect('/');
+        db.get(
+            `SELECT su.*, t.table_number
+             FROM SESSION_USERS su
+             JOIN SESSIONS s ON s.session_id = su.session_id
+             JOIN TABLES t ON t.table_id = s.table_id
+             WHERE su.user_id = ?`,
+            [user_id],
+            (err, currentUser) => {
+                if (err || !currentUser) return res.redirect('/');
+                if (String(currentUser.session_id) !== String(session_id)) {
+                    return res.status(400).send('ผู้ใช้ไม่ได้อยู่ในโต๊ะนี้');
+                }
 
-            db.all('SELECT * FROM SESSION_USERS WHERE session_id = ?', [session_id], (err, sessionUsers) => {
+                db.all('SELECT * FROM SESSION_USERS WHERE session_id = ?', [session_id], (err, sessionUsers) => {
                 if (err) sessionUsers = [];
 
                 const tempCart = getSessionCartSnapshot(req.session, session_id, user_id);
@@ -656,7 +728,7 @@ function createCustomerRouter({ db, events, notifyOrderUpdate, cartHelpers }) {
                             myTotalAmount,
                             tableTotalAmount,
                             myItemsCount,
-                            tableNo: session_id,
+                            tableNo: currentUser.table_number,
                             sessionId: session_id,
                             userId: user_id
                         });
@@ -727,7 +799,7 @@ function createCustomerRouter({ db, events, notifyOrderUpdate, cartHelpers }) {
                             myTotalAmount,
                             tableTotalAmount,
                             myItemsCount,
-                            tableNo: session_id,
+                            tableNo: currentUser.table_number,
                             sessionId: session_id,
                             userId: user_id
                         });

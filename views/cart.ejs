@@ -15,7 +15,7 @@
         <a href="/menu?session_id=<%= encodeURIComponent(sessionId) %>&user_id=<%= encodeURIComponent(userId) %>" 
             class="summary-back-link">‹ เมนู</a>
         <div class="summary-page-brand">
-            <h1>รายการที่สั่งแล้ว</h1>
+            <h1>ตะกร้า</h1>
         </div>
         <span class="customer-pill">โต๊ะ <%= tableNo %></span>
     </header>
@@ -84,10 +84,7 @@
             <% } %>
         </div>
     </section>
-
-</main>
-
-<!-- ปุ่มด้านล่าง -->
+    <!-- ปุ่มด้านล่าง -->
 <div class="bottom-bar">
     <a href="/menu?session_id=<%= sessionId %>&user_id=<%= userId %>" class="btn-add-more">สั่งเพิ่ม</a>
     <button type="button"
@@ -98,6 +95,9 @@
         ยืนยันออร์เดอร์ของคุณ (<%= myItemsCount %>)
     </button>
 </div>
+</main>
+
+
 
 <div class="cart-edit-overlay" id="cartEditModal" onclick="closeCartEditOnOverlay(event)" aria-hidden="true">
     <section class="cart-edit-modal" role="dialog" aria-modal="true" aria-labelledby="cartEditTitle">

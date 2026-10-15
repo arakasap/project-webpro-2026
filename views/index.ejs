@@ -13,7 +13,7 @@
     <div class="container">
         <header class="customer-header home-header">
             <a class="home-brand"<%= shopName %>"><%= shopName %><span>สั่งอาหารที่โต๊ะ</span></a>
-            <span class="customer-pill">โต๊ะ <%= sessionId %></span>
+            <span class="customer-pill">โต๊ะ <%= tableNumber %></span>
         </header>
 
         <% if (featuredItem && featuredItem.image_url) { %>
@@ -33,6 +33,9 @@
 
         <form action="/join-session" method="POST" id="joinForm">
             <input type="hidden" name="session_id" value="<%= sessionId %>">
+            <% if (tableId) { %>
+                <input type="hidden" name="table_id" value="<%= tableId %>">
+            <% } %>
             <input type="hidden" name="user_id" id="userIdInput">
 
             <% if (existingUsers && existingUsers.length > 0) { %>
@@ -143,7 +146,7 @@
             }
         }
     </script>
-    <script src="/js/live-updates.js" data-session-id="<%= sessionId %>"></script>
+    <% if (sessionId) { %><script src="/js/live-updates.js" data-session-id="<%= sessionId %>"></script><% } %>
 </body>
 
 </html>
