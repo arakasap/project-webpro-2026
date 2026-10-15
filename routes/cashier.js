@@ -649,7 +649,6 @@ function createCashierRouter({ db, promptpayNo, notifyOrderUpdate }) {
                                 }
                             );
                         }
-                        res.redirect('/cashier')
                     );
                 }
             );
