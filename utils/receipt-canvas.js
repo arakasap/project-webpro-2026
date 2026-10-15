@@ -87,17 +87,17 @@ function renderReceiptPng({ session, items, payments, total, isPaid }) {
     y += 54;
 
     context.fillStyle = '#17251c';
-    context.font = '700 32px Tahoma, sans-serif';
+    context.font = '700 32px monospace';
     context.fillText('ไอทีม่วนแจ่ม', center, y);
     y += 43;
 
     context.fillStyle = '#166534';
-    context.font = '700 24px Tahoma, sans-serif';
+    context.font = '700 24px monospace';
     context.fillText(isPaid ? 'ใบเสร็จรับเงิน' : 'สรุปการชำระเงิน', center, y);
     y += 36;
 
     context.fillStyle = '#526257';
-    context.font = '400 17px Tahoma, sans-serif';
+    context.font = '400 17px monospace';
     context.fillText(`เลขที่รายการ ${session.session_id}`, center, y);
     y += 35;
     y = drawSeparator(context, left, right, y);
@@ -105,25 +105,25 @@ function renderReceiptPng({ session, items, payments, total, isPaid }) {
     y = drawMetaRow(context, 'โต๊ะ', String(session.table_number), left, right, y);
     y = drawMetaRow(context, 'วันที่', formatDate(session.issued_at), left, right, y);
     context.fillStyle = isPaid ? '#166534' : '#92400e';
-    context.font = '600 18px Tahoma, sans-serif';
+    context.font = '600 18px monospace';
     context.textAlign = 'right';
     context.fillText(isPaid ? 'ชำระครบแล้ว' : 'มียอดรอชำระ', right, y);
     context.fillStyle = '#526257';
     context.textAlign = 'left';
-    context.font = '400 18px Tahoma, sans-serif';
+    context.font = '400 18px monospace';
     context.fillText('สถานะ', left, y);
     y += 36;
     y = drawSeparator(context, left, right, y);
 
     context.fillStyle = '#526257';
-    context.font = '700 17px Tahoma, sans-serif';
+    context.font = '700 17px monospace';
     context.textAlign = 'left';
     context.fillText('รายการ', left, y);
     y += 30;
 
     if (items.length === 0) {
         context.fillStyle = '#526257';
-        context.font = '400 17px Tahoma, sans-serif';
+        context.font = '400 17px monospace';
         context.fillText('ไม่มีรายการอาหารในบิลนี้', left, y);
         y += 32;
     } else {
@@ -132,23 +132,23 @@ function renderReceiptPng({ session, items, payments, total, isPaid }) {
             const rowStart = y;
 
             context.fillStyle = '#17251c';
-            context.font = '600 18px Tahoma, sans-serif';
+            context.font = '600 18px monospace';
             context.textAlign = 'left';
             nameLines.forEach((line, index) => {
                 context.fillText(line, left, rowStart + index * 25);
             });
 
             context.fillStyle = '#526257';
-            context.font = '400 15px Tahoma, sans-serif';
+            context.font = '400 15px monospace';
             context.fillText(`${formatMoney(item.price)} บาท/รายการ`, left, rowStart + nameLines.length * 25);
 
             context.fillStyle = '#17251c';
-            context.font = '400 17px Tahoma, sans-serif';
+            context.font = '400 17px monospace';
             context.textAlign = 'center';
             context.fillText(`× ${item.qty}`, 454, rowStart + 1);
 
             context.textAlign = 'right';
-            context.font = '600 17px Tahoma, sans-serif';
+            context.font = '600 17px monospace';
             context.fillText(formatMoney(item.lineTotal), right, rowStart + 1);
             y += nameLines.length * 25 + 48;
         });
@@ -157,23 +157,23 @@ function renderReceiptPng({ session, items, payments, total, isPaid }) {
     y = drawSeparator(context, left, right, y);
     context.fillStyle = '#17251c';
     context.textAlign = 'left';
-    context.font = '700 19px Tahoma, sans-serif';
+    context.font = '700 19px monospace';
     context.fillText('ยอดรวมสุทธิ', left, y + 1);
     context.textAlign = 'right';
-    context.font = '700 28px Tahoma, sans-serif';
+    context.font = '700 28px monospace';
     context.fillText(`${formatMoney(total)} บาท`, right, y - 4);
     y += 49;
     y = drawSeparator(context, left, right, y);
 
     context.fillStyle = '#526257';
     context.textAlign = 'left';
-    context.font = '700 17px Tahoma, sans-serif';
+    context.font = '700 17px monospace';
     context.fillText('การชำระเงิน', left, y);
     y += 31;
 
     if (payments.length === 0) {
         context.fillStyle = '#526257';
-        context.font = '400 17px Tahoma, sans-serif';
+        context.font = '400 17px monospace';
         context.fillText('ไม่พบข้อมูลการชำระเงิน', left, y);
         y += 32;
     } else {
@@ -183,13 +183,13 @@ function renderReceiptPng({ session, items, payments, total, isPaid }) {
 
             context.fillStyle = '#17251c';
             context.textAlign = 'left';
-            context.font = '600 17px Tahoma, sans-serif';
+            context.font = '600 17px monospace';
             payerLines.forEach((line, index) => {
                 context.fillText(line, left, rowStart + index * 24);
             });
 
             context.fillStyle = '#526257';
-            context.font = '400 15px Tahoma, sans-serif';
+            context.font = '400 15px monospace';
             context.fillText(
                 `${payment.method} · ${String(payment.status).toLowerCase() === 'paid' ? 'ชำระแล้ว' : 'รอชำระ'}`,
                 left,
@@ -198,7 +198,7 @@ function renderReceiptPng({ session, items, payments, total, isPaid }) {
 
             context.fillStyle = '#17251c';
             context.textAlign = 'right';
-            context.font = '600 17px Tahoma, sans-serif';
+            context.font = '600 17px monospace';
             context.fillText(formatMoney(payment.amount), right, rowStart + 1);
             y += payerLines.length * 24 + 40;
         });
@@ -207,12 +207,12 @@ function renderReceiptPng({ session, items, payments, total, isPaid }) {
     y = drawSeparator(context, left, right, y);
     context.fillStyle = '#166534';
     context.textAlign = 'center';
-    context.font = '700 20px Tahoma, sans-serif';
+    context.font = '700 20px monospace';
     context.fillText('ขอบคุณที่อุดหนุน', center, y + 18);
     y += 56;
 
     context.fillStyle = '#526257';
-    context.font = '400 13px Tahoma, sans-serif';
+    context.font = '400 13px monospace';
     context.fillText('ไอทีม่วนแจ่ม · RECEIPT', center, y);
 
     const output = createCanvas(CANVAS_WIDTH, y + 48);
@@ -223,11 +223,11 @@ function renderReceiptPng({ session, items, payments, total, isPaid }) {
 function drawMetaRow(context, label, value, left, right, y) {
     context.textBaseline = 'top';
     context.textAlign = 'left';
-    context.font = '400 18px Tahoma, sans-serif';
+    context.font = '400 18px monospace';
     context.fillStyle = '#526257';
     context.fillText(label, left, y);
     context.textAlign = 'right';
-    context.font = '600 18px Tahoma, sans-serif';
+    context.font = '600 18px monospace';
     context.fillStyle = '#17251c';
 
     const valueLines = wrapText(context, value, CONTENT_WIDTH - 100);
