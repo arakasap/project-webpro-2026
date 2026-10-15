@@ -87,17 +87,17 @@ function renderReceiptPng({ session, items, payments, total, isPaid }) {
     y += 54;
 
     context.fillStyle = '#17251c';
-    context.font = '700 32px monospace';
+    context.font = '32px monospace';
     context.fillText('ไอทีม่วนแจ่ม', center, y);
     y += 43;
 
     context.fillStyle = '#166534';
-    context.font = '700 24px monospace';
+    context.font = '24px monospace';
     context.fillText(isPaid ? 'ใบเสร็จรับเงิน' : 'สรุปการชำระเงิน', center, y);
     y += 36;
 
     context.fillStyle = '#526257';
-    context.font = '400 17px monospace';
+    context.font = '17px monospace';
     context.fillText(`เลขที่รายการ ${session.session_id}`, center, y);
     y += 35;
     y = drawSeparator(context, left, right, y);
@@ -105,25 +105,25 @@ function renderReceiptPng({ session, items, payments, total, isPaid }) {
     y = drawMetaRow(context, 'โต๊ะ', String(session.table_number), left, right, y);
     y = drawMetaRow(context, 'วันที่', formatDate(session.issued_at), left, right, y);
     context.fillStyle = isPaid ? '#166534' : '#92400e';
-    context.font = '600 18px monospace';
+    context.font = '18px monospace';
     context.textAlign = 'right';
     context.fillText(isPaid ? 'ชำระครบแล้ว' : 'มียอดรอชำระ', right, y);
     context.fillStyle = '#526257';
     context.textAlign = 'left';
-    context.font = '400 18px monospace';
+    context.font = '18px monospace';
     context.fillText('สถานะ', left, y);
     y += 36;
     y = drawSeparator(context, left, right, y);
 
     context.fillStyle = '#526257';
-    context.font = '700 17px monospace';
+    context.font = '17px monospace';
     context.textAlign = 'left';
     context.fillText('รายการ', left, y);
     y += 30;
 
     if (items.length === 0) {
         context.fillStyle = '#526257';
-        context.font = '400 17px monospace';
+        context.font = '17px monospace';
         context.fillText('ไม่มีรายการอาหารในบิลนี้', left, y);
         y += 32;
     } else {
@@ -132,23 +132,23 @@ function renderReceiptPng({ session, items, payments, total, isPaid }) {
             const rowStart = y;
 
             context.fillStyle = '#17251c';
-            context.font = '600 18px monospace';
+            context.font = '18px monospace';
             context.textAlign = 'left';
             nameLines.forEach((line, index) => {
                 context.fillText(line, left, rowStart + index * 25);
             });
 
             context.fillStyle = '#526257';
-            context.font = '400 15px monospace';
+            context.font = '15px monospace';
             context.fillText(`${formatMoney(item.price)} บาท/รายการ`, left, rowStart + nameLines.length * 25);
 
             context.fillStyle = '#17251c';
-            context.font = '400 17px monospace';
+            context.font = '17px monospace';
             context.textAlign = 'center';
             context.fillText(`× ${item.qty}`, 454, rowStart + 1);
 
             context.textAlign = 'right';
-            context.font = '600 17px monospace';
+            context.font = '17px monospace';
             context.fillText(formatMoney(item.lineTotal), right, rowStart + 1);
             y += nameLines.length * 25 + 48;
         });
