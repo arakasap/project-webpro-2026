@@ -1,0 +1,89 @@
+@import url('https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600&display=swap');
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Prompt', sans-serif;
+    background-color: #f8fafc;
+    color: #1e293b;
+    padding: 40px 20px;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.page-title {
+    text-align: center;
+    margin-bottom: 32px;
+    font-size: 2rem;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+/* ปรับ Layout ให้ยืดหยุ่นและรองรับ Responsive */
+.table-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 24px;
+}
+
+/* Card ตกแต่งโต๊ะ */
+.table-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 24px 16px;
+    text-align: center;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.table-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.table-card h3 {
+    font-size: 1.25rem;
+    color: #334155;
+    margin-bottom: 16px;
+}
+
+/* ปรับแต่งภาพ QR Code */
+.qr-image {
+    width: 150px;
+    height: 150px;
+    border-radius: 8px;
+    padding: 8px;
+    background-color: #ffffff;
+    border: 1px solid #f1f5f9;
+    margin-bottom: 16px;
+}
+
+/* ตกแต่งลิงก์เป็นปุ่มกด */
+.table-card p {
+    margin: 0;
+}
+
+.btn-open {
+    display: inline-block;
+    width: 100%;
+    padding: 10px 16px;
+    background-color: #2563eb;
+    color: #ffffff;
+    text-decoration: none;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    transition: background-color 0.2s ease;
+}
+
+.btn-open:hover {
+    background-color: #1d4ed8;
+}

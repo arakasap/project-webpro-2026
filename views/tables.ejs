@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>จัดการโต๊ะ</title>
+    <link rel="stylesheet" href="/css/tables.css">
+</head>
+<body>
+    <div class="container">
+        <h1 class="page-title">รายการโต๊ะทั้งหมด</h1>
+        
+        <div class="table-grid">
+            <% tables.forEach(function(table) { %>
+                <div class="table-card">
+                    <h3>โต๊ะ <%= table.table_id %></h3>
+                    
+                    <!-- เปลี่ยน src มาเรียกใช้ table.qrCode ที่ส่งมาจาก Backend -->
+                    <img class="qr-image" 
+                         src="<%= table.qrCode %>" 
+                         alt="QR Code โต๊ะ <%= table.table_id %>" />
+                    
+                    <p>
+                        <a href="/table/<%= table.table_id %>" target="_blank" class="btn-open">
+                            เปิดหน้าโต๊ะ <%= table.table_id %>
+                        </a>
+                    </p>
+                </div>
+            <% }); %>
+        </div>
+    </div>
+</body>
+</html>

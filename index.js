@@ -1,5 +1,6 @@
 const express = require('express');
 const session = require('express-session');
+const QRCode = require('qrcode');
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const { EventEmitter } = require('events');
@@ -128,9 +129,12 @@ const db = new sqlite3.Database('./database.db', (err) => {
 });
 
 // Settings
-const PROMPTPAY_NO = '0997072467'; // หมายเลข PromptPay ร้านค้า
+const PROMPTPAY_NO = '0997072467';
+
+const createTablesRouter = require('./routes/tables');
 
 // Feature routes
+app.use(createTablesRouter({ db }));
 app.use(createCustomerRouter({
     db,
     events: orderUpdates,
