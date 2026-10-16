@@ -12,8 +12,6 @@ async function initFonts() {
         const resBold = await fetch('https://raw.githubusercontent.com/google/fonts/main/ofl/prompt/Prompt-Bold.ttf');
         const bufferBold = Buffer.from(await resBold.arrayBuffer());
         GlobalFonts.register(bufferBold, 'PromptBold');
-
-        console.log('✅ Registered online Thai fonts successfully');
     } catch (error) {
         console.error('❌ Failed to load online fonts:', error);
     }

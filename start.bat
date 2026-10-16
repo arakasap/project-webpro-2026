@@ -2,6 +2,9 @@
 setlocal
 cd /d "%~dp0"
 
+echo Waiting...
+echo ========================================
+
 where node >nul 2>nul
 if errorlevel 1 goto INSTALL_NODE
 where npm >nul 2>nul
