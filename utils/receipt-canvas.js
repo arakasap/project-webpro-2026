@@ -1,24 +1,26 @@
 const { createCanvas, GlobalFonts } = require('@napi-rs/canvas');
 const path = require('path');
 
-// ฟังก์ชันโหลดฟอนต์จาก CDN เข้า RAM (รันครั้งเดียวตอนเริ่ม Server)
 async function initFonts() {
     try {
-        // ดึงไฟล์ Prompt-Regular จาก CDN
-        const resRegular = await fetch('https://cdn.jsdelivr.net/fontsource/fonts/prompt@latest/latin-400-normal.ttf');
+        // ดึงไฟล์ Prompt-Regular ตัวเต็ม (รองรับภาษาไทย)
+        const resRegular = await fetch('https://raw.githubusercontent.com/google/fonts/main/ofl/prompt/Prompt-Regular.ttf');
         const bufferRegular = Buffer.from(await resRegular.arrayBuffer());
         GlobalFonts.register(bufferRegular, 'Prompt');
 
-        // (Option) ดึงตัวหนา Prompt-Bold
-        const resBold = await fetch('https://cdn.jsdelivr.net/fontsource/fonts/prompt@latest/latin-700-normal.ttf');
+        // ดึงไฟล์ Prompt-Bold ตัวเต็ม (รองรับภาษาไทย)
+        const resBold = await fetch('https://raw.githubusercontent.com/google/fonts/main/ofl/prompt/Prompt-Bold.ttf');
         const bufferBold = Buffer.from(await resBold.arrayBuffer());
         GlobalFonts.register(bufferBold, 'PromptBold');
 
-        console.log('✅ Registered online fonts successfully');
+        console.log('✅ Registered online Thai fonts successfully');
     } catch (error) {
         console.error('❌ Failed to load online fonts:', error);
     }
 }
+
+GlobalFonts.register(bufferRegular, 'Prompt');
+GlobalFonts.register(bufferBold, 'Prompt');
 
 // ลบบรรทัด GlobalFonts.registerFromPath แบบเก่าออก
 // แล้วใส่โค้ดส่วนวาดรูปใบเสร็จเดิมของคุณได้เลย
