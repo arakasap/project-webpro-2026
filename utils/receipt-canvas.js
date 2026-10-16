@@ -7,10 +7,10 @@ const path = require('path');
 // GlobalFonts.registerFromPath(path.join(__dirname, 'fonts', 'Prompt-Bold.ttf'), 'PromptBold');
 
 // ตัวอย่างการเปลี่ยน:
-context.font = '700 32px sans-serif';
-context.font = '700 24px sans-serif';
-context.font = '400 17px sans-serif';
-context.font = '600 18px sans-serif';
+// context.font = '700 32px sans-serif';
+// context.font = '700 24px sans-serif';
+// context.font = '400 17px sans-serif';
+// context.font = '600 18px sans-serif';
 
 const CANVAS_WIDTH = 640;
 const HORIZONTAL_PADDING = 44;
