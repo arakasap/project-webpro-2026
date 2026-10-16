@@ -1,11 +1,6 @@
 const { createCanvas, GlobalFonts } = require('@napi-rs/canvas');
 const path = require('path');
 
-// 1. ลงทะเบียนฟอนต์ภาษาไทยจากไฟล์ในโปรเจกต์ (แนะนำให้วางไฟล์ .ttf ไว้ในโฟลเดอร์ fonts ของโปรเจกต์)
-GlobalFonts.registerFromPath(path.join(__dirname, 'fonts', 'Prompt-Regular.ttf'), 'Prompt');
-GlobalFonts.registerFromPath(path.join(__dirname, 'fonts', 'Prompt-SemiBold.ttf'), 'Prompt'); // หรือใช้ไฟล์ Bold
-GlobalFonts.registerFromPath(path.join(__dirname, 'fonts', 'Prompt-Bold.ttf'), 'PromptBold');
-
 const CANVAS_WIDTH = 640;
 const HORIZONTAL_PADDING = 44;
 const CONTENT_WIDTH = CANVAS_WIDTH - HORIZONTAL_PADDING * 2;

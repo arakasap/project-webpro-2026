@@ -1,1 +1,96 @@
-*{box-sizing: border-box;}body{min-height: 100vh;margin: 0;padding: 28px 16px;background: #eef2ee;color: #26352b;font-family: Tahoma,sans-serif;}.receipt-viewer{display: grid;justify-items: center;gap: 18px;margin: 0 auto;}.receipt-image{display: block;width: min(100%, 640px);height: auto;background: #fff;box-shadow: 0 12px 34px rgba(31, 43, 35, 0.12);}.receipt-actions{display: flex;align-items: center;justify-content: center;gap: 18px;}.receipt-actions button,.receipt-actions a{display: inline-flex;min-height: 42px;align-items: center;justify-content: center;padding: 9px 16px;border: 1px solid #166534;border-radius: 6px;color: #fff;background: #166534;cursor: pointer;font: 700 13px Tahoma,sans-serif;text-decoration: none;}.receipt-actions button:hover,.receipt-actions a:hover{background: #14532d;}.receipt-actions button:focus-visible,.receipt-actions a:focus-visible{outline: 3px solid rgba(22, 101, 52, 0.45);outline-offset: 3px;}@media (max-width: 480px){body{padding: 14px 10px;}.receipt-actions{flex-direction: column;gap: 10px;}}@media print{@page{size: 80mm auto;margin: 0;}body{min-height: 0;padding: 0;background: #fff;}.receipt-image{width: 80mm;box-shadow: none;}.receipt-actions{display: none;}}
+@import url('https://fonts.googleapis.com/css2?family=Prompt:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    min-height: 100vh;
+    margin: 0;
+    padding: 28px 16px;
+    background: #eef2ee;
+    color: #26352b;
+    font-family: Tahoma, sans-serif;
+}
+
+.receipt-viewer {
+    display: grid;
+    justify-items: center;
+    gap: 18px;
+    margin: 0 auto;
+}
+
+.receipt-image {
+    display: block;
+    width: min(100%, 640px);
+    height: auto;
+    background: #fff;
+    box-shadow: 0 12px 34px rgba(31, 43, 35, 0.12);
+}
+
+.receipt-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+}
+
+.receipt-actions button,
+.receipt-actions a {
+    display: inline-flex;
+    min-height: 42px;
+    align-items: center;
+    justify-content: center;
+    padding: 9px 16px;
+    border: 1px solid #166534;
+    border-radius: 6px;
+    color: #fff;
+    background: #166534;
+    cursor: pointer;
+    font: 700 13px Tahoma, sans-serif;
+    text-decoration: none;
+}
+
+.receipt-actions button:hover,
+.receipt-actions a:hover {
+    background: #14532d;
+}
+
+.receipt-actions button:focus-visible,
+.receipt-actions a:focus-visible {
+    outline: 3px solid rgba(22, 101, 52, 0.45);
+    outline-offset: 3px;
+}
+
+@media (max-width: 480px) {
+    body {
+        padding: 14px 10px;
+    }
+
+    .receipt-actions {
+        flex-direction: column;
+        gap: 10px;
+    }
+}
+
+@media print {
+    @page {
+        size: 80mm auto;
+        margin: 0;
+    }
+
+    body {
+        min-height: 0;
+        padding: 0;
+        background: #fff;
+    }
+
+    .receipt-image {
+        width: 80mm;
+        box-shadow: none;
+    }
+
+    .receipt-actions {
+        display: none;
+    }
+}
