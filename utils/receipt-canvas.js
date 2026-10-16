@@ -1,10 +1,16 @@
 const { createCanvas, GlobalFonts } = require('@napi-rs/canvas');
 const path = require('path');
 
-// 1. ลงทะเบียนฟอนต์ภาษาไทยจากไฟล์ในโปรเจกต์ (แนะนำให้วางไฟล์ .ttf ไว้ในโฟลเดอร์ fonts ของโปรเจกต์)
-GlobalFonts.registerFromPath(path.join(__dirname, 'fonts', 'Prompt-Regular.ttf'), 'Prompt');
-GlobalFonts.registerFromPath(path.join(__dirname, 'fonts', 'Prompt-SemiBold.ttf'), 'Prompt'); // หรือใช้ไฟล์ Bold
-GlobalFonts.registerFromPath(path.join(__dirname, 'fonts', 'Prompt-Bold.ttf'), 'PromptBold');
+// // 1. ลงทะเบียนฟอนต์ภาษาไทยจากไฟล์ในโปรเจกต์ (แนะนำให้วางไฟล์ .ttf ไว้ในโฟลเดอร์ fonts ของโปรเจกต์)
+// GlobalFonts.registerFromPath(path.join(__dirname, 'fonts', 'Prompt-Regular.ttf'), 'Prompt, sans-serif');
+// GlobalFonts.registerFromPath(path.join(__dirname, 'fonts', 'Prompt-SemiBold.ttf'), 'Prompt, sans-serif'); // หรือใช้ไฟล์ Bold
+// GlobalFonts.registerFromPath(path.join(__dirname, 'fonts', 'Prompt-Bold.ttf'), 'PromptBold');
+
+// ตัวอย่างการเปลี่ยน:
+context.font = '700 32px sans-serif';
+context.font = '700 24px sans-serif';
+context.font = '400 17px sans-serif';
+context.font = '600 18px sans-serif';
 
 const CANVAS_WIDTH = 640;
 const HORIZONTAL_PADDING = 44;
@@ -103,7 +109,7 @@ function renderReceiptPng({ session, items, payments, total, isPaid }) {
     y += 36;
 
     context.fillStyle = '#526257';
-    context.font = '400 17px Prompt';
+    context.font = '400 17px Prompt, sans-serif';
     context.fillText(`เลขที่รายการ ${session.session_id}`, center, y);
     y += 35;
     y = drawSeparator(context, left, right, y);
@@ -116,7 +122,7 @@ function renderReceiptPng({ session, items, payments, total, isPaid }) {
     context.fillText(isPaid ? 'ชำระครบแล้ว' : 'มียอดรอชำระ', right, y);
     context.fillStyle = '#526257';
     context.textAlign = 'left';
-    context.font = '400 18px Prompt';
+    context.font = '400 18px Prompt, sans-serif';
     context.fillText('สถานะ', left, y);
     y += 36;
     y = drawSeparator(context, left, right, y);
@@ -129,7 +135,7 @@ function renderReceiptPng({ session, items, payments, total, isPaid }) {
 
     if (items.length === 0) {
         context.fillStyle = '#526257';
-        context.font = '400 17px Prompt';
+        context.font = '400 17px Prompt, sans-serif';
         context.fillText('ไม่มีรายการอาหารในบิลนี้', left, y);
         y += 32;
     } else {
@@ -145,11 +151,11 @@ function renderReceiptPng({ session, items, payments, total, isPaid }) {
             });
 
             context.fillStyle = '#526257';
-            context.font = '400 15px Prompt';
+            context.font = '400 15px Prompt, sans-serif';
             context.fillText(`${formatMoney(item.price)} บาท/รายการ`, left, rowStart + nameLines.length * 25);
 
             context.fillStyle = '#17251c';
-            context.font = '400 17px Prompt';
+            context.font = '400 17px Prompt, sans-serif';
             context.textAlign = 'center';
             context.fillText(`× ${item.qty}`, 454, rowStart + 1);
 
@@ -179,7 +185,7 @@ function renderReceiptPng({ session, items, payments, total, isPaid }) {
 
     if (payments.length === 0) {
         context.fillStyle = '#526257';
-        context.font = '400 17px Prompt';
+        context.font = '400 17px Prompt, sans-serif';
         context.fillText('ไม่พบข้อมูลการชำระเงิน', left, y);
         y += 32;
     } else {
@@ -195,7 +201,7 @@ function renderReceiptPng({ session, items, payments, total, isPaid }) {
             });
 
             context.fillStyle = '#526257';
-            context.font = '400 15px Prompt';
+            context.font = '400 15px Prompt, sans-serif';
             context.fillText(
                 `${payment.method} · ${String(payment.status).toLowerCase() === 'paid' ? 'ชำระแล้ว' : 'รอชำระ'}`,
                 left,
@@ -218,7 +224,7 @@ function renderReceiptPng({ session, items, payments, total, isPaid }) {
     y += 56;
 
     context.fillStyle = '#526257';
-    context.font = '400 13px Prompt';
+    context.font = '400 13px Prompt, sans-serif';
     context.fillText('ไอทีม่วนแจ่ม · RECEIPT', center, y);
 
     const output = createCanvas(CANVAS_WIDTH, y + 48);
@@ -229,7 +235,7 @@ function renderReceiptPng({ session, items, payments, total, isPaid }) {
 function drawMetaRow(context, label, value, left, right, y) {
     context.textBaseline = 'top';
     context.textAlign = 'left';
-    context.font = '400 18px Prompt';
+    context.font = '400 18px Prompt, sans-serif';
     context.fillStyle = '#526257';
     context.fillText(label, left, y);
     context.textAlign = 'right';
