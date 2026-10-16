@@ -1,6 +1,31 @@
 const { createCanvas, GlobalFonts } = require('@napi-rs/canvas');
 const path = require('path');
 
+// ฟังก์ชันโหลดฟอนต์จาก CDN เข้า RAM (รันครั้งเดียวตอนเริ่ม Server)
+async function initFonts() {
+    try {
+        // ดึงไฟล์ Prompt-Regular จาก CDN
+        const resRegular = await fetch('https://cdn.jsdelivr.net/fontsource/fonts/prompt@latest/latin-400-normal.ttf');
+        const bufferRegular = Buffer.from(await resRegular.arrayBuffer());
+        GlobalFonts.register(bufferRegular, 'Prompt');
+
+        // (Option) ดึงตัวหนา Prompt-Bold
+        const resBold = await fetch('https://cdn.jsdelivr.net/fontsource/fonts/prompt@latest/latin-700-normal.ttf');
+        const bufferBold = Buffer.from(await resBold.arrayBuffer());
+        GlobalFonts.register(bufferBold, 'PromptBold');
+
+        console.log('✅ Registered online fonts successfully');
+    } catch (error) {
+        console.error('❌ Failed to load online fonts:', error);
+    }
+}
+
+// ลบบรรทัด GlobalFonts.registerFromPath แบบเก่าออก
+// แล้วใส่โค้ดส่วนวาดรูปใบเสร็จเดิมของคุณได้เลย
+// ...
+// function renderReceiptPng(...) { ... }
+
+module.exports = { initFonts, renderReceiptPng };
 // // 1. ลงทะเบียนฟอนต์ภาษาไทยจากไฟล์ในโปรเจกต์ (แนะนำให้วางไฟล์ .ttf ไว้ในโฟลเดอร์ fonts ของโปรเจกต์)
 // GlobalFonts.registerFromPath(path.join(__dirname, 'fonts', 'Prompt-Regular.ttf'), 'Prompt, sans-serif');
 // GlobalFonts.registerFromPath(path.join(__dirname, 'fonts', 'Prompt-SemiBold.ttf'), 'Prompt, sans-serif'); // หรือใช้ไฟล์ Bold
@@ -263,4 +288,7 @@ function drawSeparator(context, left, right, y) {
     return y + 23;
 }
 
-module.exports = { renderReceiptPng };
+module.exports = {
+    initFonts,
+    renderReceiptPng
+};

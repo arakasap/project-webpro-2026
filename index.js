@@ -152,9 +152,21 @@ app.use(createCashierRouter({ db, promptpayNo: PROMPTPAY_NO, notifyOrderUpdate }
 app.use(createKitchenRouter({ db, notifyOrderUpdate }));
 
 // Start Server
+const { initFonts } = require('./utils/receipt-canvas');
+
 // -----------------------------------------------------------------------------
 if (require.main === module) {
-    app.listen(PORT, () => {
-        console.log(`Server is running at http://localhost:${PORT}`);
-    });
+    // โหลดฟอนต์ให้เสร็จก่อน แล้วค่อยสั่ง listen
+    initFonts()
+        .then(() => {
+            app.listen(PORT, () => {
+                console.log(`Server is running at http://localhost:${PORT}`);
+            });
+        })
+        .catch((err) => {
+            console.error('Failed to initialize fonts:', err);
+            process.exit(1);
+        });
 }
+
+module.exports = app;
