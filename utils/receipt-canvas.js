@@ -19,9 +19,6 @@ async function initFonts() {
     }
 }
 
-GlobalFonts.register(bufferRegular, 'Prompt');
-GlobalFonts.register(bufferBold, 'Prompt');
-
 // ลบบรรทัด GlobalFonts.registerFromPath แบบเก่าออก
 // แล้วใส่โค้ดส่วนวาดรูปใบเสร็จเดิมของคุณได้เลย
 // ...
